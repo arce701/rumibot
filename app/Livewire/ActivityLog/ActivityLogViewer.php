@@ -38,16 +38,16 @@ class ActivityLogViewer extends Component
             'App\\Models\\KnowledgeDocument',
         ];
 
+        $tenantUserIds = $tenant->users()->pluck('users.id');
+
         $activities = Activity::query()
-            ->where(function ($query) use ($tenant, $tenantModelTypes) {
+            ->where(function ($query) use ($tenant, $tenantUserIds) {
                 $query->where(function ($q) use ($tenant) {
                     $q->where('subject_type', 'App\\Models\\Tenant')
                         ->where('subject_id', $tenant->id);
-                })->orWhere(function ($q) use ($tenant, $tenantModelTypes) {
-                    $q->whereIn('subject_type', $tenantModelTypes)
-                        ->whereHas('subject', function ($subQuery) use ($tenant) {
-                            $subQuery->withoutGlobalScopes()->where('tenant_id', $tenant->id);
-                        });
+                })->orWhere(function ($q) use ($tenantUserIds) {
+                    $q->where('causer_type', 'App\\Models\\User')
+                        ->whereIn('causer_id', $tenantUserIds);
                 });
             })
             ->when($this->subjectTypeFilter, fn ($query) => $query->where('subject_type', $this->subjectTypeFilter))

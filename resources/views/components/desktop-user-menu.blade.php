@@ -22,6 +22,25 @@
             <flux:menu.item :href="route('profile.edit')" icon="cog" wire:navigate>
                 {{ __('Settings') }}
             </flux:menu.item>
+        </flux:menu.radio.group>
+        <flux:menu.separator />
+        <div class="px-3 py-1.5">
+            <flux:text size="xs" class="text-zinc-500 uppercase font-medium">{{ __('Language') }}</flux:text>
+        </div>
+        <flux:menu.radio.group>
+            @php $currentLocale = auth()->user()->locale ?? app()->getLocale(); @endphp
+            <flux:menu.item href="{{ url('locale/es') }}" icon="{{ $currentLocale === 'es' ? 'check' : 'minus' }}" class="{{ $currentLocale === 'es' ? 'font-semibold' : '' }}">
+                Español
+            </flux:menu.item>
+            <flux:menu.item href="{{ url('locale/en') }}" icon="{{ $currentLocale === 'en' ? 'check' : 'minus' }}" class="{{ $currentLocale === 'en' ? 'font-semibold' : '' }}">
+                English
+            </flux:menu.item>
+            <flux:menu.item href="{{ url('locale/pt_BR') }}" icon="{{ $currentLocale === 'pt_BR' ? 'check' : 'minus' }}" class="{{ $currentLocale === 'pt_BR' ? 'font-semibold' : '' }}">
+                Português
+            </flux:menu.item>
+        </flux:menu.radio.group>
+        <flux:menu.separator />
+        <flux:menu.radio.group>
             <form method="POST" action="{{ route('logout') }}" class="w-full">
                 @csrf
                 <flux:menu.item

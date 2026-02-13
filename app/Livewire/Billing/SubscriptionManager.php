@@ -82,11 +82,16 @@ class SubscriptionManager extends Component
 
         $usageMetrics = [];
         if ($subscription) {
-            $featureSlugs = ['max_channels', 'max_messages', 'max_documents', 'max_team_members'];
-            foreach ($featureSlugs as $slug) {
+            $featureLabels = [
+                'max_channels' => __('WhatsApp Channels'),
+                'max_messages' => __('Total Messages'),
+                'max_documents' => __('Knowledge Documents'),
+                'max_team_members' => __('Team Members'),
+            ];
+            foreach ($featureLabels as $slug => $label) {
                 $limit = $gate->getLimit($tenant, $slug);
                 $usageMetrics[$slug] = [
-                    'label' => __(str_replace('max_', '', $slug)),
+                    'label' => $label,
                     'used' => $gate->getCurrentUsage($tenant, $slug),
                     'limit' => $limit,
                     'percentage' => $limit === 'unlimited' ? 0 : ($limit > 0 ? min(100, round(($gate->getCurrentUsage($tenant, $slug) / $limit) * 100)) : 0),

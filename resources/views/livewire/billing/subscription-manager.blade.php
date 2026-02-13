@@ -35,7 +35,7 @@
                         </flux:badge>
                         <flux:text size="sm">
                             {{ $subscription->planPrice->billing_interval->value }} &middot;
-                            S/ {{ number_format($subscription->planPrice->price_amount / 100, 2) }}
+                            {{ $subscription->planPrice->currency }} ${{ number_format($subscription->planPrice->price_amount / 100, 2) }}
                         </flux:text>
                     </div>
                     @if ($subscription->current_period_ends_at)
@@ -120,7 +120,7 @@
                     <div class="mt-3 space-y-1">
                         @foreach ($plan->prices as $price)
                             <flux:text size="sm">
-                                <span class="font-semibold">S/ {{ number_format($price->price_amount / 100, 2) }}</span>
+                                <span class="font-semibold">{{ $price->currency }} ${{ number_format($price->price_amount / 100, 2) }}</span>
                                 / {{ $price->billing_interval->value }}
                             </flux:text>
                         @endforeach

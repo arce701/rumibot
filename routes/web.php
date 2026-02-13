@@ -24,6 +24,18 @@ Route::get('/', function () {
     return view('welcome');
 })->name('home');
 
+Route::get('locale/{locale}', function (string $locale) {
+    if (! in_array($locale, ['es', 'en', 'pt_BR'])) {
+        abort(400);
+    }
+
+    if (auth()->check()) {
+        auth()->user()->update(['locale' => $locale]);
+    }
+
+    return redirect()->back();
+})->name('locale.switch');
+
 Route::middleware(['auth', 'verified', 'tenant'])->group(function () {
     Route::get('dashboard', Dashboard::class)->name('dashboard');
     Route::get('channels', ChannelManager::class)->name('channels');

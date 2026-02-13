@@ -34,9 +34,9 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $superAdmin = User::create([
-            'name' => 'Yerson Arce',
-            'email' => 'yerson@rumistar.com',
-            'password' => bcrypt('password'),
+            'name' => 'Rumibot Admin',
+            'email' => 'rumibot8@gmail.com',
+            'password' => bcrypt('Rumi2026$'),
             'email_verified_at' => now(),
             'is_super_admin' => true,
             'current_tenant_id' => $tenant->id,
@@ -52,15 +52,15 @@ class DatabaseSeeder extends Seeder
             'is_default' => true,
         ]);
 
-        $empresaPlan = Plan::where('slug', 'empresa')->first();
-        $empresaPrice = PlanPrice::where('plan_id', $empresaPlan->id)
+        $plan = Plan::where('slug', 'rumibot')->first();
+        $price = PlanPrice::where('plan_id', $plan->id)
             ->where('billing_interval', 'annual')
             ->first();
 
         $subscription = Subscription::withoutGlobalScopes()->create([
             'tenant_id' => $tenant->id,
-            'plan_id' => $empresaPlan->id,
-            'plan_price_id' => $empresaPrice->id,
+            'plan_id' => $plan->id,
+            'plan_price_id' => $price->id,
             'status' => SubscriptionStatus::Active,
             'payment_provider' => PaymentProviderType::Manual,
             'current_period_starts_at' => now(),
@@ -72,9 +72,9 @@ class DatabaseSeeder extends Seeder
             'subscription_id' => $subscription->id,
             'payment_provider' => PaymentProviderType::Manual,
             'status' => PaymentStatus::Completed,
-            'amount' => $empresaPrice->price_amount,
-            'currency' => 'PEN',
-            'description' => 'Platform owner - Empresa plan',
+            'amount' => $price->price_amount,
+            'currency' => 'USD',
+            'description' => 'Platform owner - Annual subscription',
         ]);
     }
 }
