@@ -1,0 +1,137 @@
+<div>
+    <div class="mb-6 flex items-center justify-between">
+        <flux:heading size="xl">{{ __('Channels') }}</flux:heading>
+
+        @can('channels.create')
+            <flux:button wire:click="$toggle('showForm')" variant="primary" icon="plus">
+                {{ __('New Channel') }}
+            </flux:button>
+        @endcan
+    </div>
+
+    @if (session('message'))
+        <div class="mb-4 rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-800 dark:border-green-800 dark:bg-green-900/20 dark:text-green-400">
+            {{ session('message') }}
+        </div>
+    @endif
+
+    @if ($showForm)
+        <div class="mb-6 rounded-xl border border-zinc-200 bg-white p-6 dark:border-zinc-700 dark:bg-zinc-900">
+            <flux:heading size="lg" class="mb-4">
+                {{ $editingChannelId ? __('Edit Channel') : __('Create Channel') }}
+            </flux:heading>
+
+            <form wire:submit="{{ $editingChannelId ? 'update' : 'create' }}" class="space-y-4">
+                <div class="grid gap-4 md:grid-cols-2">
+                    <flux:input wire:model="name" :label="__('Name')" required />
+                    <flux:input wire:model="slug" :label="__('Slug')" required />
+                </div>
+
+                <div class="grid gap-4 md:grid-cols-2">
+                    <flux:select wire:model="type" :label="__('Type')">
+                        @foreach ($channelTypes as $ct)
+                            <flux:select.option :value="$ct->value">{{ ucfirst($ct->value) }}</flux:select.option>
+                        @endforeach
+                    </flux:select>
+
+                    <flux:select wire:model="providerType" :label="__('Provider')">
+                        @foreach ($providerTypes as $pt)
+                            <flux:select.option :value="$pt->value">{{ $pt->value }}</flux:select.option>
+                        @endforeach
+                    </flux:select>
+                </div>
+
+                <flux:input wire:model="providerApiKey" :label="__('API Key')" type="password"
+                    :placeholder="$editingChannelId ? __('Leave blank to keep current') : ''" />
+
+                <div class="grid gap-4 md:grid-cols-2">
+                    <flux:input wire:model="providerPhoneNumberId" :label="__('Phone Number ID')" />
+                    <flux:input wire:model="providerBusinessAccountId" :label="__('Business Account ID')" />
+                </div>
+
+                <flux:input wire:model="providerWebhookVerifyToken" :label="__('Webhook Verify Token')" />
+
+                <flux:textarea wire:model="systemPromptOverride" :label="__('System Prompt Override')" rows="3" />
+
+                <div class="grid gap-4 md:grid-cols-2">
+                    <flux:input wire:model="aiModelOverride" :label="__('AI Model Override')" :placeholder="__('e.g., gpt-4o-mini')" />
+                    <flux:input wire:model="aiTemperature" :label="__('AI Temperature')" type="number" step="0.1" min="0" max="2" />
+                </div>
+
+                <flux:switch wire:model="isActive" :label="__('Active')" />
+
+                <div class="flex gap-2">
+                    <flux:button type="submit" variant="primary">
+                        {{ $editingChannelId ? __('Update') : __('Create') }}
+                    </flux:button>
+                    <flux:button wire:click="resetForm" variant="ghost">{{ __('Cancel') }}</flux:button>
+                </div>
+            </form>
+        </div>
+    @endif
+
+    @if ($channels->isEmpty())
+        <div class="rounded-xl border border-zinc-200 bg-white p-12 text-center dark:border-zinc-700 dark:bg-zinc-900">
+            <flux:text>{{ __('No channels configured yet.') }}</flux:text>
+        </div>
+    @else
+        <div class="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-700">
+            <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
+                <thead class="bg-zinc-50 dark:bg-zinc-800">
+                    <tr>
+                        <th class="px-6 py-3 text-start text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Name') }}</th>
+                        <th class="px-6 py-3 text-start text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Type') }}</th>
+                        <th class="px-6 py-3 text-start text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Provider') }}</th>
+                        <th class="px-6 py-3 text-start text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Status') }}</th>
+                        <th class="px-6 py-3 text-start text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Webhook URL') }}</th>
+                        <th class="px-6 py-3 text-end text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Actions') }}</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-zinc-200 bg-white dark:divide-zinc-700 dark:bg-zinc-900">
+                    @foreach ($channels as $channel)
+                        <tr wire:key="channel-{{ $channel->id }}">
+                            <td class="whitespace-nowrap px-6 py-4">
+                                <div>
+                                    <flux:text class="font-medium">{{ $channel->name }}</flux:text>
+                                    <flux:text size="sm" class="text-zinc-500">{{ $channel->conversations_count }} {{ __('conversations') }}</flux:text>
+                                </div>
+                            </td>
+                            <td class="whitespace-nowrap px-6 py-4">
+                                <flux:badge :color="$channel->type->value === 'sales' ? 'blue' : 'green'">
+                                    {{ ucfirst($channel->type->value) }}
+                                </flux:badge>
+                            </td>
+                            <td class="whitespace-nowrap px-6 py-4">
+                                <flux:text>{{ $channel->provider_type->value }}</flux:text>
+                            </td>
+                            <td class="whitespace-nowrap px-6 py-4">
+                                <flux:badge :color="$channel->is_active ? 'green' : 'zinc'">
+                                    {{ $channel->is_active ? __('Active') : __('Inactive') }}
+                                </flux:badge>
+                            </td>
+                            <td class="px-6 py-4">
+                                <flux:text size="sm" class="break-all font-mono text-zinc-500">
+                                    /api/webhooks/whatsapp/{{ $tenantId }}/{{ $channel->slug }}
+                                </flux:text>
+                            </td>
+                            <td class="whitespace-nowrap px-6 py-4 text-end">
+                                <div class="flex justify-end gap-2">
+                                    @can('channels.update')
+                                        <flux:button wire:click="edit('{{ $channel->id }}')" size="sm" variant="ghost" icon="pencil" />
+                                        <flux:button wire:click="toggleActive('{{ $channel->id }}')" size="sm" variant="ghost"
+                                            :icon="$channel->is_active ? 'pause' : 'play'" />
+                                    @endcan
+                                    @can('channels.delete')
+                                        <flux:button wire:click="deleteChannel('{{ $channel->id }}')"
+                                            wire:confirm="{{ __('Are you sure you want to delete this channel?') }}"
+                                            size="sm" variant="ghost" icon="trash" class="text-red-600 hover:text-red-700 dark:text-red-400" />
+                                    @endcan
+                                </div>
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    @endif
+</div>
