@@ -1,128 +1,116 @@
 # Rumibot
 
-Plataforma SaaS multi-tenant de chatbots de IA para WhatsApp, diseñada para negocios latinoamericanos.
+Multi-tenant SaaS platform where Latin American businesses configure AI chatbots for WhatsApp. Each tenant uploads their company info, sets up Sales and Support channels with independent WhatsApp numbers, and the AI bot handles prospects and customers automatically.
 
-## Funcionalidades
+## What It Does
 
-- **Chatbot IA por WhatsApp** - Agente conversacional con RAG (Retrieval-Augmented Generation) que responde usando la base de conocimiento del negocio
-- **Canales Sales & Support** - Cada tenant configura canales de ventas (persuasivo) y soporte (didáctico) con personalidad independiente
-- **Captura de Leads** - El bot extrae datos del prospecto durante la conversación y los guarda automáticamente
-- **Base de Conocimiento** - Upload de PDFs y documentos, procesados en chunks con embeddings (pgvector) para búsqueda semántica
-- **Escalación a Humano** - Detección automática de cuándo transferir a un agente humano
-- **Integraciones Externas** - Webhooks outbound a n8n, Zapier, Make con firma HMAC-SHA256
-- **API REST** - Endpoints autenticados con Sanctum para automatización externa
-- **Billing** - Suscripciones con MercadoPago (trimestral, semestral, anual) y pagos manuales
-- **Multi-idioma** - Español, inglés y portugués brasileño
-- **Panel Super-Admin** - Gestión global de tenants, planes y billing de la plataforma
-- **Feature Flags** - Control de funcionalidades por plan de suscripción via Laravel Pennant
-- **Exportaciones** - Leads y conversaciones a Excel/CSV
-- **Monitoreo** - Laravel Pulse para performance, backups automáticos a S3
+- **Sales Channel** — Persuasive bot that answers product questions, shares catalogs/media, captures lead data, qualifies prospects, and escalates high-intent leads to human agents
+- **Support Channel** — Patient bot that teaches product usage step-by-step, resolves FAQs, shares instructional media, and escalates complex issues to humans
+- **Knowledge Base (RAG)** — Upload PDFs/docs, auto-processed into chunks with pgvector embeddings for semantic search
+- **Integrations** — Outbound webhooks (n8n, Zapier, Make) with HMAC-SHA256 signing + REST API with Sanctum tokens
+- **Billing** — Subscriptions via MercadoPago (quarterly, semi-annual, annual) + manual payments
+- **Platform Admin** — Super-admin panel for global tenant/plan/billing management
+- **i18n** — Full Spanish, English, and Brazilian Portuguese support (UI + enum labels)
 
 ## Stack
 
-| Componente | Tecnología |
+| Component | Technology |
 |-----------|------------|
 | Framework | Laravel 12 |
 | Frontend | Livewire 4 + Flux UI Free v2 + Tailwind CSS v4 |
-| Base de Datos | PostgreSQL + pgvector |
-| IA | Laravel AI SDK (OpenAI, Anthropic, Gemini) |
-| Auth | Laravel Fortify + Sanctum |
+| Database | PostgreSQL + pgvector |
+| AI | Laravel AI SDK (OpenAI, Anthropic, Gemini) |
+| Auth | Laravel Fortify (headless + 2FA) + Sanctum |
 | WhatsApp | YCloud (Business API) |
-| Pagos | MercadoPago |
-| Testing | Pest 4 |
-| Colas | Database driver (Redis + Horizon planificado) |
+| Payments | MercadoPago |
+| Testing | Pest 4 (323+ tests) |
+| Queues | Database driver (Redis + Horizon planned) |
+| Feature Flags | Laravel Pennant |
+| Monitoring | Laravel Pulse |
+| Exports | Maatwebsite Excel |
+| Backups | Spatie Laravel Backup (S3) |
 
-## Requisitos
+## Requirements
 
 - PHP 8.4+
-- PostgreSQL 15+ con extensión pgvector
+- PostgreSQL 15+ with pgvector extension
 - Node.js 20+
 - Composer 2+
 
-## Instalación
+## Installation
 
 ```bash
-# Clonar repositorio
 git clone <repo-url> rumibot
 cd rumibot
 
-# Instalar dependencias
 composer install
 npm install
 
-# Configurar entorno
 cp .env.example .env
 php artisan key:generate
 
-# Configurar base de datos PostgreSQL en .env, luego:
+# Configure PostgreSQL + AI provider keys in .env, then:
 php artisan migrate --seed
-
-# Compilar assets
 npm run build
 
-# Iniciar worker de colas
+# Start queue worker (required for WhatsApp message processing)
 php artisan queue:work --queue=high,default,low
 ```
 
-## Desarrollo
+## Development
 
 ```bash
-# Servidor de desarrollo (Herd o Valet sirven automáticamente en rumibot.test)
+# Dev server (Herd/Valet auto-serves at rumibot.test)
 npm run dev
 
-# Ejecutar tests
+# Run tests
 php artisan test --compact
 
-# Formatear código
+# Format code
 vendor/bin/pint
 
-# Procesar colas en desarrollo
+# Queue worker
 php artisan queue:work --queue=high,default,low
 ```
 
-## Estructura del Proyecto
+## Project Structure
 
 ```
 app/
-├── Ai/              # Agente IA, tools (CaptureLead, EscalateToHuman, SendMedia)
-├── Exports/         # Exportaciones Excel (Leads, Conversations)
+├── Ai/              # TenantChatAgent, tools (CaptureLead, EscalateToHuman, SendMedia)
+├── Exports/         # Excel exports (Leads, Conversations)
 ├── Http/
-│   ├── Controllers/ # Webhook controllers (WhatsApp, Payments, API)
+│   ├── Controllers/ # Webhook controllers (WhatsApp, Payments, Automation API)
 │   └── Middleware/   # Tenant, auth, locale, logging
 ├── Jobs/            # ProcessIncomingMessage, SendWhatsApp, ProcessDocument, DispatchIntegration
-├── Livewire/        # Componentes UI (Dashboard, Channels, Conversations, Leads, Billing, Platform)
-├── Models/          # 16 modelos con enums, traits (BelongsToTenant), scopes (TenantScope)
+├── Livewire/        # UI components (20 pages: Dashboard, Channels, Conversations, Leads, Billing, Platform...)
+├── Models/          # 16 models + 12 enums with label() translations
 ├── Services/        # Tenant, WhatsApp, Document, Billing, Discord
-├── Events/          # Eventos de negocio (ConversationStarted, LeadCaptured, etc.)
-└── Listeners/       # Dispatch de eventos a integraciones externas
+├── Events/          # Business events (ConversationStarted, LeadCaptured, etc.)
+└── Listeners/       # Dispatch events to tenant integrations
+lang/
+├── {en,es,pt_BR}.json    # Custom UI translation keys (~150 keys)
+└── {en,es,pt_BR}/enums.php  # Translated enum labels (12 groups)
 docs/
-├── plan.md              # Especificación completa del proyecto
-└── architecture-map.md  # Mapa de arquitectura para referencia
+├── architecture-map.md  # Technical reference (architecture, file index, patterns, how to extend)
+├── session-claude.md    # Development session log (context for AI-assisted development)
+└── uso.md               # Quick start guide
 ```
 
-## Documentación
+## Documentation
 
-- **[docs/plan.md](docs/plan.md)** - Especificación completa: misión, arquitectura, esquema de DB, fases de implementación
-- **[docs/architecture-map.md](docs/architecture-map.md)** - Mapa de arquitectura: índice de archivos, patrones, operaciones comunes
+- **[docs/architecture-map.md](docs/architecture-map.md)** — Complete technical reference: architecture, file index, patterns, common operations, and how to extend the platform
+- **[docs/session-claude.md](docs/session-claude.md)** — Development session history for continuity across AI-assisted sessions
+- **[docs/uso.md](docs/uso.md)** — Quick start guide for using the platform
 
 ## Tests
 
-323+ tests cubriendo:
-
-- Autenticación y 2FA
-- Aislamiento de tenants (11 modelos)
-- WhatsApp webhooks y messaging
-- Agente IA y tools
-- Knowledge base (RAG)
-- Billing y suscripciones
-- Rate limiting y seguridad
-- Exportaciones
-- Panel super-admin
+323+ tests covering tenant isolation (11 models), WhatsApp webhooks, AI agent + tools, RAG pipeline, billing/subscriptions, rate limiting, security, exports, auth/2FA, and super-admin panel.
 
 ```bash
 php artisan test --compact
 ```
 
-## Licencia
+## License
 
-Propietario. Todos los derechos reservados.
+Proprietary. All rights reserved.
