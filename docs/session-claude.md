@@ -103,16 +103,48 @@ Registro de todas las sesiones de trabajo. Cargar este archivo al inicio de una 
 
 ---
 
+## Sesion 4 — Landing page con branding Rumibot
+
+**Commits:** `157a9ae`, `ee3c305`, `c1db3a3`
+
+**Cambios:**
+- Landing page publica en `/` con soporte i18n (ES/EN/PT_BR)
+- Branding Rumibot: logo sparkle star reemplaza logo Laravel
+- Secciones: hero, features, pricing, CTA, footer
+- Menu mobile responsive
+- Mejoras visuales generales
+
+---
+
+## Sesion 5 — Traducciones i18n: JSON custom keys + enums traducibles
+
+**Commits:** `519e61b`, `7c9a056`, `f7d87c4`
+
+### Traducciones JSON
+- ~150 translation keys custom agregadas a `lang/{en,es,pt_BR}.json`
+- Investigacion confirmo que `lang:update` preserva keys custom (soft merge) — solo `lang:reset` las destruye
+
+### Enums traducibles
+- Creados `lang/{en,es,pt_BR}/enums.php` con labels para los 12 enums
+- Agregado metodo `label(): string` a los 12 enums en `app/Models/Enums/`
+- Patron: `__('enums.{group}.' . $this->value)` → devuelve label traducido
+- Reemplazadas 18 ocurrencias de `ucfirst($enum->value)` por `$enum->label()` en 11 vistas blade
+
+### Limpieza
+- Eliminado `lang/vendor/backup/` (traducciones publicadas de spatie/backup, innecesarias)
+- Eliminado `docs/plan.md` (redundante con `docs/architecture-map.md`)
+- Actualizado `docs/architecture-map.md` con seccion i18n actualizada, tabla de enums, vision del producto y roadmap
+
+**Tests:** 323 pasando, 1 skipped (preexistente)
+
+---
+
 ## Estado actual del proyecto
 
-**Tag:** v1.0.0 + 1 commit
-**Tests:** 323+ pasando
+**Tests:** 323 pasando
 **Branch:** main
 **Super admin:** rumibot8@gmail.com / Rumi2026$
 **Plan:** Rumibot (unico) en USD — $30/trim, $55/sem, $110/anual
 **Fases completadas:** 0-9 (todas)
+**Docs:** `architecture-map.md` (referencia tecnica), `session-claude.md` (log de sesiones), `uso.md` (quickstart)
 **Pendiente:** Deployment, dominio produccion, configuracion real de YCloud/MercadoPago/AI providers
-
-
-Resume this session with:
-claude --resume 83d9c29f-1af0-4d05-aab8-0a586caefcf2

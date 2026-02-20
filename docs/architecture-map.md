@@ -1,7 +1,6 @@
 # Rumibot - Architecture Map
 
 > AI-readable reference for maintaining, debugging, and extending the platform.
-> For the original design spec and database schema, see [plan.md](plan.md).
 
 ---
 
@@ -493,7 +492,41 @@ Outbound integration webhooks are signed with `hash_hmac('sha256', $jsonPayload,
 - `users.locale` → UI language for the admin panel
 - `tenants.locale` → Bot language (injected into agent's system prompt)
 - `SetLocale` middleware reads `auth()->user()->locale` and calls `App::setLocale()`
-- Translation files in `lang/{locale}/` (messages.php, dashboard.php, channels.php, knowledge.php, billing.php, platform.php)
+
+### Translation File Architecture
+
+| File type | Purpose | Safe from `lang:update`? |
+|-----------|---------|--------------------------|
+| `lang/{locale}.json` | Custom UI strings (`__('Channels')`, `__('Save')`, etc.) | Yes — `lang:update` does soft merge, preserves custom keys |
+| `lang/{locale}/enums.php` | Translated labels for all 12 enums | Yes — `laravel-lang` never touches custom PHP files |
+| `lang/{locale}/*.php` (auto-generated) | Framework/Fortify/validation translations | Managed by `laravel-lang` |
+
+**Only `lang:reset` (destructive) would overwrite custom JSON keys. Normal `lang:update` is safe.**
+
+### Translatable Enums
+
+All 12 enums in `app/Models/Enums/` have a `label()` method that returns a translated string:
+
+```php
+// Example: ChannelType.php
+public function label(): string
+{
+    return __('enums.channel_type.' . $this->value);
+}
+```
+
+Translation keys live in `lang/{locale}/enums.php` organized by group:
+
+```php
+// lang/es/enums.php
+return [
+    'channel_type' => ['sales' => 'Ventas', 'support' => 'Soporte'],
+    'conversation_status' => ['active' => 'Activa', 'closed' => 'Cerrada', ...],
+    // ... 12 groups total
+];
+```
+
+**In Blade views, always use `$enum->label()` instead of `ucfirst($enum->value)`.**
 
 ### Translation Gotcha
 
@@ -526,9 +559,22 @@ Outbound integration webhooks are signed with `hash_hmac('sha256', $jsonPayload,
 
 ### Enums (12)
 
-All in `app/Models/Enums/`:
+All in `app/Models/Enums/`. Each enum has a `label(): string` method returning translated labels via `__('enums.{group}.{value}')`.
 
-`ChannelType`, `ConversationStatus`, `WhatsAppProviderType`, `DocumentStatus`, `LeadStatus`, `IntegrationStatus`, `IntegrationProvider`, `WebhookEvent`, `BillingInterval`, `SubscriptionStatus`, `PaymentProviderType`, `PaymentStatus`
+| Enum | Translation group | Values |
+|------|-------------------|--------|
+| `ChannelType` | `enums.channel_type` | Sales, Support |
+| `ConversationStatus` | `enums.conversation_status` | Active, Closed, Escalated |
+| `LeadStatus` | `enums.lead_status` | New, Contacted, Converted, Lost |
+| `DocumentStatus` | `enums.document_status` | Pending, Processing, Ready, Failed |
+| `IntegrationStatus` | `enums.integration_status` | Active, Suspended |
+| `IntegrationProvider` | `enums.integration_provider` | N8n, Zapier, Make, Custom |
+| `BillingInterval` | `enums.billing_interval` | Quarterly, SemiAnnual, Annual |
+| `SubscriptionStatus` | `enums.subscription_status` | Active, Trialing, PastDue, Canceled, Expired |
+| `PaymentStatus` | `enums.payment_status` | Pending, Completed, Failed, Refunded |
+| `PaymentProviderType` | `enums.payment_provider` | MercadoPago, Stripe, Manual |
+| `WhatsAppProviderType` | `enums.whatsapp_provider` | YCloud, MetaCloud |
+| `WebhookEvent` | `enums.webhook_event` | ConversationStarted, MessageReceived, LeadCaptured, EscalationTriggered, ConversationClosed |
 
 ### Livewire Components (20)
 
@@ -690,21 +736,28 @@ vendor/bin/pint --dirty --format agent
 
 ---
 
-## Implementation Phases (Completed)
+## Product Vision
 
-| Phase | Name | Status |
-|-------|------|--------|
-| 0 | Foundation (Multi-tenancy, packages, roles, i18n) | Done |
-| 1 | WhatsApp channels + YCloud integration | Done |
-| 2 | AI Agent (TenantChatAgent + tools) | Done |
-| 3 | Knowledge Base (RAG with pgvector) | Done |
-| 4 | Tenant Admin Panel (Livewire + Flux UI) | Done |
-| 5 | Leads, Escalations, Notifications | Done |
-| 6 | External Integrations + Automation API | Done |
-| 7 | Billing & Subscriptions (MercadoPago) | Done |
-| 8 | Super-Admin Platform Panel | Done |
-| 9 | Production Hardening (rate limiting, encryption, logging, exports, backups, Pulse) | Done |
+Rumibot automates WhatsApp communication for Latin American businesses in two key functions:
 
-### Pending (On Demand)
+1. **Prospect Management (Pre-sale):** Sales channel bot answers product questions, shares media/catalogs, captures lead data, qualifies prospects, and escalates high-intent leads to human sales agents.
+2. **Customer Support (Post-sale):** Support channel bot teaches product usage step-by-step, shares instructional media, resolves FAQs instantly, and escalates complex issues to human support.
 
-- **Redis + Horizon:** Migration from database queue driver to Redis. Install `laravel/horizon`, change `QUEUE_CONNECTION=redis`. The switch is transparent — same jobs, different driver.
+Each function operates on a separate WhatsApp number (channel) with its own personality, knowledge base, and system prompt.
+
+**Business model:** Single plan ("Rumibot") in USD with quarterly ($30), semi-annual ($55), and annual ($110) billing. Tenants bring their own AI API keys.
+
+**First tenant:** RumiStar E.I.R.L. (`is_platform_owner: true`), developer of iTrade 3.x (real estate SaaS with 176+ active companies in LATAM).
+
+---
+
+## Roadmap
+
+All 10 implementation phases (0-9) are complete. Pending items:
+
+| Item | Description | Priority |
+|------|-------------|----------|
+| Redis + Horizon | Migrate from `database` queue driver to Redis. Install `laravel/horizon`, change `QUEUE_CONNECTION=redis`. Transparent switch — same jobs, different driver. | On demand |
+| Production deployment | Domain, SSL, server setup, real YCloud/MercadoPago/AI provider keys | Next |
+| Landing page | Branded public landing at `/` with i18n support (ES/EN/PT_BR) — partially done | In progress |
+| Analytics dashboard | `Livewire/Analytics/AnalyticsDashboard.php` — metrics and charts per tenant | Pending |
