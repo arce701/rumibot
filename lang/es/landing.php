@@ -33,4 +33,28 @@ return [
 
     'footer_rights' => 'Todos los derechos reservados.',
     'footer_tagline' => 'Chatbots de IA para WhatsApp',
+
+    'meta_description' => 'Automatiza ventas y soporte al cliente en WhatsApp con chatbots de inteligencia artificial. Configura en minutos, responde 24/7.',
+
+    'how_title' => 'Cómo funciona',
+    'how_subtitle' => 'Tres pasos simples para tener tu chatbot de WhatsApp funcionando.',
+    'how_step1_title' => 'Crea tu cuenta',
+    'how_step1_description' => 'Regístrate gratis y accede al panel de administración en segundos.',
+    'how_step2_title' => 'Entrena tu bot',
+    'how_step2_description' => 'Sube documentos, FAQs y configura las respuestas de tu chatbot.',
+    'how_step3_title' => 'Conecta WhatsApp',
+    'how_step3_description' => 'Vincula tu número de WhatsApp y comienza a atender clientes automáticamente.',
+
+    'stats_available' => '24/7',
+    'stats_available_desc' => 'Disponibilidad continua',
+    'stats_languages' => '3 idiomas',
+    'stats_languages_desc' => 'Español, inglés y portugués',
+    'stats_response' => '< 2s',
+    'stats_response_desc' => 'Tiempo de respuesta promedio',
+    'stats_unlimited' => 'Ilimitado',
+    'stats_unlimited_desc' => 'Conversaciones simultáneas',
+
+    'footer_terms' => 'Términos',
+    'footer_privacy' => 'Privacidad',
+    'footer_contact' => 'Contacto',
 ];

@@ -3,6 +3,7 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="description" content="{{ __('landing.meta_description') }}">
 
         <title>{{ config('app.name') }} - {{ __('landing.hero_title') }}</title>
 
@@ -19,7 +20,7 @@
     <body class="bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 font-sans antialiased">
 
         {{-- Navbar --}}
-        <nav class="sticky top-0 z-50 border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md">
+        <nav class="sticky top-0 z-50 border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md" x-data="{ mobileOpen: false }">
             <div class="mx-auto max-w-6xl flex items-center justify-between px-6 py-4">
                 <a href="{{ route('home') }}" class="flex items-center gap-2">
                     <span class="flex size-8 items-center justify-center rounded-md bg-zinc-900 dark:bg-white">
@@ -28,7 +29,8 @@
                     <span class="text-lg font-semibold">Rumibot</span>
                 </a>
 
-                <div class="flex items-center gap-3">
+                {{-- Desktop nav --}}
+                <div class="hidden lg:flex items-center gap-3">
                     {{-- Language Switcher --}}
                     @php $currentLocale = auth()->check() ? (auth()->user()->locale ?? app()->getLocale()) : app()->getLocale(); @endphp
                     <div class="relative" x-data="{ open: false }" @click.away="open = false">
@@ -71,12 +73,92 @@
                         @endauth
                     @endif
                 </div>
+
+                {{-- Mobile hamburger button --}}
+                <button
+                    @click="mobileOpen = !mobileOpen"
+                    class="lg:hidden flex items-center justify-center rounded-md p-2 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                    aria-label="Toggle menu"
+                    :aria-expanded="mobileOpen"
+                >
+                    <svg x-show="!mobileOpen" xmlns="http://www.w3.org/2000/svg" class="size-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                    </svg>
+                    <svg x-show="mobileOpen" x-cloak xmlns="http://www.w3.org/2000/svg" class="size-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            {{-- Mobile menu panel --}}
+            <div
+                x-show="mobileOpen"
+                x-transition:enter="transition ease-out duration-200"
+                x-transition:enter-start="opacity-0 -translate-y-2"
+                x-transition:enter-end="opacity-100 translate-y-0"
+                x-transition:leave="transition ease-in duration-150"
+                x-transition:leave-start="opacity-100 translate-y-0"
+                x-transition:leave-end="opacity-0 -translate-y-2"
+                x-cloak
+                class="lg:hidden border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 px-6 py-4"
+            >
+                {{-- Language buttons --}}
+                @php $currentLocale = auth()->check() ? (auth()->user()->locale ?? app()->getLocale()) : app()->getLocale(); @endphp
+                <div class="flex items-center gap-2 mb-4">
+                    <a href="{{ url('locale/es') }}" class="rounded-md px-3 py-1.5 text-sm transition-colors {{ $currentLocale === 'es' ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-semibold' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800' }}">
+                        ES
+                    </a>
+                    <a href="{{ url('locale/en') }}" class="rounded-md px-3 py-1.5 text-sm transition-colors {{ $currentLocale === 'en' ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-semibold' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800' }}">
+                        EN
+                    </a>
+                    <a href="{{ url('locale/pt_BR') }}" class="rounded-md px-3 py-1.5 text-sm transition-colors {{ $currentLocale === 'pt_BR' ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-semibold' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800' }}">
+                        PT
+                    </a>
+                </div>
+
+                {{-- Auth links --}}
+                @if (Route::has('login'))
+                    <div class="flex flex-col gap-2">
+                        @auth
+                            <a href="{{ url('/dashboard') }}" class="rounded-md bg-zinc-900 dark:bg-white px-4 py-2.5 text-sm font-medium text-white dark:text-zinc-900 text-center hover:bg-zinc-700 dark:hover:bg-zinc-200 transition-colors">
+                                Dashboard
+                            </a>
+                        @else
+                            <a href="{{ route('login') }}" class="rounded-md border border-zinc-300 dark:border-zinc-700 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 text-center hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors">
+                                {{ __('landing.hero_login') }}
+                            </a>
+                            @if (Route::has('register'))
+                                <a href="{{ route('register') }}" class="rounded-md bg-zinc-900 dark:bg-white px-4 py-2.5 text-sm font-medium text-white dark:text-zinc-900 text-center hover:bg-zinc-700 dark:hover:bg-zinc-200 transition-colors">
+                                    {{ __('landing.hero_cta') }}
+                                </a>
+                            @endif
+                        @endauth
+                    </div>
+                @endif
             </div>
         </nav>
 
         {{-- Hero --}}
         <section class="relative overflow-hidden">
             <div class="absolute inset-0 bg-gradient-to-b from-zinc-50 to-white dark:from-zinc-900 dark:to-zinc-950"></div>
+
+            {{-- Central glow --}}
+            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-gradient-to-r from-green-500/10 via-emerald-500/5 to-green-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+            {{-- Decorative sparkles --}}
+            <svg class="absolute top-16 left-[15%] size-6 text-green-400/30 animate-pulse pointer-events-none" viewBox="0 0 32 32" fill="currentColor" style="animation-delay: 0s">
+                <path d="M16 2Q18 14 30 16Q18 18 16 30Q14 18 2 16Q14 14 16 2Z"/>
+            </svg>
+            <svg class="absolute top-32 right-[20%] size-4 text-emerald-400/20 animate-pulse pointer-events-none" viewBox="0 0 32 32" fill="currentColor" style="animation-delay: 0.5s">
+                <path d="M16 2Q18 14 30 16Q18 18 16 30Q14 18 2 16Q14 14 16 2Z"/>
+            </svg>
+            <svg class="absolute bottom-24 left-[25%] size-5 text-green-300/25 animate-pulse pointer-events-none" viewBox="0 0 32 32" fill="currentColor" style="animation-delay: 1s">
+                <path d="M16 2Q18 14 30 16Q18 18 16 30Q14 18 2 16Q14 14 16 2Z"/>
+            </svg>
+            <svg class="absolute bottom-16 right-[15%] size-3 text-emerald-300/20 animate-pulse pointer-events-none" viewBox="0 0 32 32" fill="currentColor" style="animation-delay: 1.5s">
+                <path d="M16 2Q18 14 30 16Q18 18 16 30Q14 18 2 16Q14 14 16 2Z"/>
+            </svg>
+
             <div class="relative mx-auto max-w-4xl px-6 py-24 sm:py-32 lg:py-40 text-center">
                 <div class="landing-animate">
                     <span class="inline-flex items-center gap-2 rounded-full border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-4 py-1.5 text-sm text-zinc-600 dark:text-zinc-400 mb-8">
@@ -193,17 +275,137 @@
             </div>
         </section>
 
-        {{-- CTA --}}
+        {{-- How it works --}}
         <section class="border-t border-zinc-200 dark:border-zinc-800">
-            <div class="mx-auto max-w-4xl px-6 py-24 sm:py-32 text-center landing-animate">
-                <h2 class="text-3xl sm:text-4xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+            <div class="mx-auto max-w-6xl px-6 py-24 sm:py-32">
+                <div class="text-center mb-16 landing-animate">
+                    <h2 class="text-3xl sm:text-4xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+                        {{ __('landing.how_title') }}
+                    </h2>
+                    <p class="mt-4 text-lg text-zinc-600 dark:text-zinc-400 max-w-2xl mx-auto">
+                        {{ __('landing.how_subtitle') }}
+                    </p>
+                </div>
+
+                <div class="relative grid gap-12 lg:grid-cols-3 lg:gap-8">
+                    {{-- Connector line (desktop only) --}}
+                    <div class="hidden lg:block absolute top-10 left-[calc(16.67%+1rem)] right-[calc(16.67%+1rem)] h-px bg-zinc-200 dark:bg-zinc-700"></div>
+
+                    {{-- Step 1 --}}
+                    <div class="landing-animate text-center">
+                        <div class="relative mx-auto mb-6 flex size-20 items-center justify-center rounded-full border-2 border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
+                            <span class="text-2xl font-bold text-green-600 dark:text-green-400">1</span>
+                        </div>
+                        <div class="mb-3 flex justify-center text-green-600 dark:text-green-400">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="size-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+                            </svg>
+                        </div>
+                        <h3 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{{ __('landing.how_step1_title') }}</h3>
+                        <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">{{ __('landing.how_step1_description') }}</p>
+                    </div>
+
+                    {{-- Step 2 --}}
+                    <div class="landing-animate text-center">
+                        <div class="relative mx-auto mb-6 flex size-20 items-center justify-center rounded-full border-2 border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
+                            <span class="text-2xl font-bold text-green-600 dark:text-green-400">2</span>
+                        </div>
+                        <div class="mb-3 flex justify-center text-green-600 dark:text-green-400">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="size-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.438 60.438 0 0 0-.491 6.347A48.62 48.62 0 0 1 12 20.904a48.62 48.62 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342M6.75 15a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 0v-3.675A55.378 55.378 0 0 1 12 8.443m-7.007 11.55A5.981 5.981 0 0 0 6.75 15.75v-1.5" />
+                            </svg>
+                        </div>
+                        <h3 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{{ __('landing.how_step2_title') }}</h3>
+                        <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">{{ __('landing.how_step2_description') }}</p>
+                    </div>
+
+                    {{-- Step 3 --}}
+                    <div class="landing-animate text-center">
+                        <div class="relative mx-auto mb-6 flex size-20 items-center justify-center rounded-full border-2 border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
+                            <span class="text-2xl font-bold text-green-600 dark:text-green-400">3</span>
+                        </div>
+                        <div class="mb-3 flex justify-center text-green-600 dark:text-green-400">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="size-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
+                            </svg>
+                        </div>
+                        <h3 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{{ __('landing.how_step3_title') }}</h3>
+                        <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">{{ __('landing.how_step3_description') }}</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        {{-- Stats / Social proof --}}
+        <section class="border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50">
+            <div class="mx-auto max-w-6xl px-6 py-24 sm:py-32">
+                <div class="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+                    {{-- Stat: Available --}}
+                    <div class="landing-animate text-center">
+                        <div class="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="size-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                            </svg>
+                        </div>
+                        <p class="text-3xl font-bold text-zinc-900 dark:text-zinc-50">{{ __('landing.stats_available') }}</p>
+                        <p class="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{{ __('landing.stats_available_desc') }}</p>
+                    </div>
+
+                    {{-- Stat: Languages --}}
+                    <div class="landing-animate text-center">
+                        <div class="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="size-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5a17.92 17.92 0 0 1-8.716-2.247m0 0A8.966 8.966 0 0 1 3 12c0-1.264.26-2.467.73-3.558" />
+                            </svg>
+                        </div>
+                        <p class="text-3xl font-bold text-zinc-900 dark:text-zinc-50">{{ __('landing.stats_languages') }}</p>
+                        <p class="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{{ __('landing.stats_languages_desc') }}</p>
+                    </div>
+
+                    {{-- Stat: Response time --}}
+                    <div class="landing-animate text-center">
+                        <div class="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="size-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z" />
+                            </svg>
+                        </div>
+                        <p class="text-3xl font-bold text-zinc-900 dark:text-zinc-50">{{ __('landing.stats_response') }}</p>
+                        <p class="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{{ __('landing.stats_response_desc') }}</p>
+                    </div>
+
+                    {{-- Stat: Unlimited --}}
+                    <div class="landing-animate text-center">
+                        <div class="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="size-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 0 1-.825-.242m9.345-8.334a2.126 2.126 0 0 0-.476-.095 48.64 48.64 0 0 0-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0 0 11.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155" />
+                            </svg>
+                        </div>
+                        <p class="text-3xl font-bold text-zinc-900 dark:text-zinc-50">{{ __('landing.stats_unlimited') }}</p>
+                        <p class="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{{ __('landing.stats_unlimited_desc') }}</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        {{-- CTA --}}
+        <section class="relative overflow-hidden border-t border-zinc-200 dark:border-zinc-800 bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900">
+            {{-- Decorative sparkles --}}
+            <svg class="absolute top-8 left-[10%] size-5 text-green-400/20 animate-pulse pointer-events-none" viewBox="0 0 32 32" fill="currentColor" style="animation-delay: 0.3s">
+                <path d="M16 2Q18 14 30 16Q18 18 16 30Q14 18 2 16Q14 14 16 2Z"/>
+            </svg>
+            <svg class="absolute bottom-8 right-[10%] size-4 text-emerald-400/15 animate-pulse pointer-events-none" viewBox="0 0 32 32" fill="currentColor" style="animation-delay: 0.8s">
+                <path d="M16 2Q18 14 30 16Q18 18 16 30Q14 18 2 16Q14 14 16 2Z"/>
+            </svg>
+
+            <div class="relative mx-auto max-w-4xl px-6 py-24 sm:py-32 text-center landing-animate">
+                <h2 class="text-3xl sm:text-4xl font-semibold tracking-tight text-white">
                     {{ __('landing.cta_title') }}
                 </h2>
-                <p class="mt-4 text-lg text-zinc-600 dark:text-zinc-400 max-w-xl mx-auto">
+                <p class="mt-4 text-lg text-zinc-300 max-w-xl mx-auto">
                     {{ __('landing.cta_subtitle') }}
                 </p>
                 @if (Route::has('register'))
-                    <a href="{{ route('register') }}" class="mt-8 inline-block rounded-lg bg-zinc-900 dark:bg-white px-8 py-3 text-base font-medium text-white dark:text-zinc-900 hover:bg-zinc-700 dark:hover:bg-zinc-200 transition-colors shadow-sm">
+                    <a href="{{ route('register') }}" class="mt-8 inline-block rounded-lg bg-white px-8 py-3 text-base font-medium text-zinc-900 hover:bg-zinc-100 transition-colors shadow-sm">
                         {{ __('landing.cta_button') }}
                     </a>
                 @endif
@@ -212,23 +414,34 @@
 
         {{-- Footer --}}
         <footer class="border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50">
-            <div class="mx-auto max-w-6xl px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div class="flex items-center gap-2">
-                    <span class="flex size-6 items-center justify-center rounded bg-zinc-900 dark:bg-white">
-                        <x-app-logo-icon class="size-3.5 fill-current text-white dark:text-black" />
-                    </span>
-                    <span class="text-sm font-medium text-zinc-700 dark:text-zinc-300">Rumibot</span>
-                    <span class="text-sm text-zinc-400 dark:text-zinc-500">&mdash; {{ __('landing.footer_tagline') }}</span>
+            <div class="mx-auto max-w-6xl px-6 pt-8 pb-6">
+                <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div class="flex items-center gap-2">
+                        <span class="flex size-6 items-center justify-center rounded bg-zinc-900 dark:bg-white">
+                            <x-app-logo-icon class="size-3.5 fill-current text-white dark:text-black" />
+                        </span>
+                        <span class="text-sm font-medium text-zinc-700 dark:text-zinc-300">Rumibot</span>
+                        <span class="text-sm text-zinc-400 dark:text-zinc-500">&mdash; {{ __('landing.footer_tagline') }}</span>
+                    </div>
+                    <div class="flex items-center gap-4 text-sm text-zinc-500 dark:text-zinc-400">
+                        <a href="#" class="hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors">{{ __('landing.footer_terms') }}</a>
+                        <span class="text-zinc-300 dark:text-zinc-600">|</span>
+                        <a href="#" class="hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors">{{ __('landing.footer_privacy') }}</a>
+                        <span class="text-zinc-300 dark:text-zinc-600">|</span>
+                        <a href="#" class="hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors">{{ __('landing.footer_contact') }}</a>
+                    </div>
                 </div>
-                <p class="text-sm text-zinc-500 dark:text-zinc-500">
-                    &copy; {{ date('Y') }} Rumibot. {{ __('landing.footer_rights') }}
-                </p>
+                <div class="mt-6 border-t border-zinc-200 dark:border-zinc-800 pt-4 text-center">
+                    <p class="text-sm text-zinc-500 dark:text-zinc-500">
+                        &copy; {{ date('Y') }} Rumibot. {{ __('landing.footer_rights') }}
+                    </p>
+                </div>
             </div>
         </footer>
 
         @fluxScripts
 
-        {{-- Scroll Animation --}}
+        {{-- Scroll Animation with staggered delays per section --}}
         <script>
             document.addEventListener('DOMContentLoaded', function () {
                 const elements = document.querySelectorAll('.landing-animate');
@@ -240,12 +453,27 @@
                 });
 
                 const observer = new IntersectionObserver(function (entries) {
+                    const groups = {};
+
                     entries.forEach(function (entry) {
                         if (entry.isIntersecting) {
-                            entry.target.style.opacity = '1';
-                            entry.target.style.transform = 'translateY(0)';
-                            observer.unobserve(entry.target);
+                            const parent = entry.target.parentElement;
+                            const key = parent ? parent.getAttribute('data-section') || parent.tagName + parent.className.slice(0, 30) : 'default';
+                            if (!groups[key]) {
+                                groups[key] = [];
+                            }
+                            groups[key].push(entry.target);
                         }
+                    });
+
+                    Object.values(groups).forEach(function (group) {
+                        group.forEach(function (el, index) {
+                            setTimeout(function () {
+                                el.style.opacity = '1';
+                                el.style.transform = 'translateY(0)';
+                            }, index * 100);
+                            observer.unobserve(el);
+                        });
                     });
                 }, { threshold: 0.1 });
 
