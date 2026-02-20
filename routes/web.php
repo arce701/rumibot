@@ -33,6 +33,8 @@ Route::get('locale/{locale}', function (string $locale) {
         auth()->user()->update(['locale' => $locale]);
     }
 
+    session(['locale' => $locale]);
+
     return redirect()->back();
 })->name('locale.switch');
 
