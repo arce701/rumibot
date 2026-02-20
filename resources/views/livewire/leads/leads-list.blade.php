@@ -23,7 +23,7 @@
         <flux:select wire:model.live="statusFilter" class="w-full sm:w-48">
             <flux:select.option value="">{{ __('All Statuses') }}</flux:select.option>
             @foreach ($statuses as $status)
-                <flux:select.option :value="$status->value">{{ ucfirst($status->value) }}</flux:select.option>
+                <flux:select.option :value="$status->value">{{ $status->label() }}</flux:select.option>
             @endforeach
         </flux:select>
 
@@ -109,7 +109,7 @@
         <div class="mt-4 space-y-4">
             <flux:select wire:model="editStatus" :label="__('Status')">
                 @foreach ($statuses as $status)
-                    <flux:select.option :value="$status->value">{{ ucfirst($status->value) }}</flux:select.option>
+                    <flux:select.option :value="$status->value">{{ $status->label() }}</flux:select.option>
                 @endforeach
             </flux:select>
 

@@ -8,4 +8,9 @@ enum IntegrationProvider: string
     case Zapier = 'zapier';
     case Make = 'make';
     case Custom = 'custom';
+
+    public function label(): string
+    {
+        return __('enums.integration_provider.'.$this->value);
+    }
 }

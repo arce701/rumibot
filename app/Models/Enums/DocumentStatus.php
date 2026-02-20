@@ -8,4 +8,9 @@ enum DocumentStatus: string
     case Processing = 'processing';
     case Ready = 'ready';
     case Failed = 'failed';
+
+    public function label(): string
+    {
+        return __('enums.document_status.'.$this->value);
+    }
 }

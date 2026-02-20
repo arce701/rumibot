@@ -94,7 +94,7 @@
                     <flux:text size="sm" class="text-zinc-500">{{ __('Status') }}</flux:text>
                     <div class="mt-1">
                         <flux:badge :color="$activeSubscription->status->value === 'active' ? 'green' : 'yellow'">
-                            {{ ucfirst($activeSubscription->status->value) }}
+                            {{ $activeSubscription->status->label() }}
                         </flux:badge>
                     </div>
                 </div>

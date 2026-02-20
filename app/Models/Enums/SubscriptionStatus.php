@@ -9,4 +9,9 @@ enum SubscriptionStatus: string
     case PastDue = 'past_due';
     case Canceled = 'canceled';
     case Expired = 'expired';
+
+    public function label(): string
+    {
+        return __('enums.subscription_status.'.$this->value);
+    }
 }

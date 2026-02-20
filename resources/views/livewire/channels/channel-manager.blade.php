@@ -30,7 +30,7 @@
                 <div class="grid gap-4 md:grid-cols-2">
                     <flux:select wire:model="type" :label="__('Type')">
                         @foreach ($channelTypes as $ct)
-                            <flux:select.option :value="$ct->value">{{ ucfirst($ct->value) }}</flux:select.option>
+                            <flux:select.option :value="$ct->value">{{ $ct->label() }}</flux:select.option>
                         @endforeach
                     </flux:select>
 
@@ -98,7 +98,7 @@
                             </td>
                             <td class="whitespace-nowrap px-6 py-4">
                                 <flux:badge :color="$channel->type->value === 'sales' ? 'blue' : 'green'">
-                                    {{ ucfirst($channel->type->value) }}
+                                    {{ $channel->type->label() }}
                                 </flux:badge>
                             </td>
                             <td class="whitespace-nowrap px-6 py-4">

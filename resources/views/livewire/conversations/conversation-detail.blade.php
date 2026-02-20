@@ -76,7 +76,7 @@
                         @endif
                         <div>
                             <flux:text size="sm" class="text-zinc-500">{{ __('Status') }}</flux:text>
-                            <flux:badge>{{ ucfirst($lead->status->value) }}</flux:badge>
+                            <flux:badge>{{ $lead->status->label() }}</flux:badge>
                         </div>
                     </dl>
                 </div>

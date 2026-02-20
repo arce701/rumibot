@@ -29,7 +29,7 @@
                     <div class="mb-4 flex items-center gap-2">
                         <flux:heading size="base">{{ $channel->name }}</flux:heading>
                         <flux:badge :color="$channel->type->value === 'sales' ? 'blue' : 'green'" size="sm">
-                            {{ ucfirst($channel->type->value) }}
+                            {{ $channel->type->label() }}
                         </flux:badge>
                     </div>
 

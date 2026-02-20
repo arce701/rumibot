@@ -49,7 +49,7 @@
                             <flux:text size="sm" class="mb-2 font-medium text-zinc-500">{{ __('Prices') }}</flux:text>
                             <div class="flex flex-wrap gap-2">
                                 @foreach ($plan->prices as $price)
-                                    <flux:badge>{{ ucfirst(str_replace('_', ' ', $price->billing_interval->value)) }}: {{ number_format($price->price_amount / 100, 2) }} {{ $price->currency }}</flux:badge>
+                                    <flux:badge>{{ $price->billing_interval->label() }}: {{ number_format($price->price_amount / 100, 2) }} {{ $price->currency }}</flux:badge>
                                 @endforeach
                             </div>
                         </div>
@@ -97,7 +97,7 @@
                     <div wire:key="price-{{ $index }}" class="mb-2 flex items-end gap-2">
                         <flux:select wire:model="planPrices.{{ $index }}.billing_interval" :label="$index === 0 ? __('Interval') : ''" class="flex-1">
                             @foreach ($billingIntervals as $interval)
-                                <flux:select.option :value="$interval->value">{{ ucfirst(str_replace('_', ' ', $interval->value)) }}</flux:select.option>
+                                <flux:select.option :value="$interval->value">{{ $interval->label() }}</flux:select.option>
                             @endforeach
                         </flux:select>
                         <flux:input wire:model="planPrices.{{ $index }}.amount" :label="$index === 0 ? __('Amount (cents)') : ''" type="number" class="flex-1" />

@@ -79,7 +79,7 @@
                                     <flux:text>{{ $subscription->plan?->name ?? '-' }}</flux:text>
                                 </td>
                                 <td class="whitespace-nowrap px-6 py-4">
-                                    <flux:badge color="green">{{ ucfirst($subscription->status->value) }}</flux:badge>
+                                    <flux:badge color="green">{{ $subscription->status->label() }}</flux:badge>
                                 </td>
                                 <td class="whitespace-nowrap px-6 py-4">
                                     <flux:text>{{ $subscription->planPrice ? number_format($subscription->planPrice->price_amount / 100, 2) . ' ' . $subscription->planPrice->currency : '-' }}</flux:text>

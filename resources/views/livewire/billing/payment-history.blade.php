@@ -11,7 +11,7 @@
         <flux:select wire:model.live="statusFilter" class="w-48">
             <flux:select.option value="">{{ __('All statuses') }}</flux:select.option>
             @foreach ($paymentStatuses as $status)
-                <flux:select.option :value="$status->value">{{ ucfirst($status->value) }}</flux:select.option>
+                <flux:select.option :value="$status->value">{{ $status->label() }}</flux:select.option>
             @endforeach
         </flux:select>
     </div>
@@ -57,11 +57,11 @@
                                     'refunded' => 'blue',
                                     default => 'zinc',
                                 }">
-                                    {{ ucfirst($payment->status->value) }}
+                                    {{ $payment->status->label() }}
                                 </flux:badge>
                             </td>
                             <td class="whitespace-nowrap px-6 py-4">
-                                <flux:text size="sm">{{ ucfirst($payment->payment_provider->value) }}</flux:text>
+                                <flux:text size="sm">{{ $payment->payment_provider->label() }}</flux:text>
                             </td>
                         </tr>
                     @endforeach

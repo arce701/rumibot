@@ -31,7 +31,7 @@
                             'past_due' => 'red',
                             default => 'zinc',
                         }">
-                            {{ ucfirst($subscription->status->value) }}
+                            {{ $subscription->status->label() }}
                         </flux:badge>
                         <flux:text size="sm">
                             {{ $subscription->planPrice->billing_interval->value }} &middot;
@@ -153,7 +153,7 @@
 
             <flux:select wire:model="selectedInterval" :label="__('Billing Interval')">
                 @foreach ($billingIntervals as $interval)
-                    <flux:select.option :value="$interval->value">{{ ucfirst($interval->value) }}</flux:select.option>
+                    <flux:select.option :value="$interval->value">{{ $interval->label() }}</flux:select.option>
                 @endforeach
             </flux:select>
 

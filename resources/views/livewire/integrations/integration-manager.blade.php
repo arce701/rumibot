@@ -27,7 +27,7 @@
 
                     <flux:select wire:model="provider" :label="__('Provider')">
                         @foreach ($integrationProviders as $p)
-                            <flux:select.option :value="$p->value">{{ ucfirst($p->value) }}</flux:select.option>
+                            <flux:select.option :value="$p->value">{{ $p->label() }}</flux:select.option>
                         @endforeach
                     </flux:select>
                 </div>
@@ -89,11 +89,11 @@
                                 </div>
                             </td>
                             <td class="whitespace-nowrap px-6 py-4">
-                                <flux:badge color="blue">{{ ucfirst($integration->provider->value) }}</flux:badge>
+                                <flux:badge color="blue">{{ $integration->provider->label() }}</flux:badge>
                             </td>
                             <td class="whitespace-nowrap px-6 py-4">
                                 <flux:badge :color="$integration->status === \App\Models\Enums\IntegrationStatus::Active ? 'green' : 'red'">
-                                    {{ ucfirst($integration->status->value) }}
+                                    {{ $integration->status->label() }}
                                 </flux:badge>
                                 @if ($integration->failure_count > 0)
                                     <flux:text size="sm" class="text-red-500">{{ $integration->failure_count }} {{ __('failures') }}</flux:text>
