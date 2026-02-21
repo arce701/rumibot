@@ -39,9 +39,27 @@
                         </flux:sidebar.item>
                     @endcan
 
+                    @can('ai-config.view')
+                        <flux:sidebar.item icon="cpu-chip" :href="route('ai-config')" :current="request()->routeIs('ai-config')" wire:navigate>
+                            {{ __('AI Configuration') }}
+                        </flux:sidebar.item>
+                    @endcan
+
                     @can('prompts.view')
                         <flux:sidebar.item icon="chat-bubble-left-right" :href="route('prompts')" :current="request()->routeIs('prompts')" wire:navigate>
                             {{ __('Prompts') }}
+                        </flux:sidebar.item>
+                    @endcan
+
+                    @can('knowledge.view')
+                        <flux:sidebar.item icon="book-open" :href="route('knowledge')" :current="request()->routeIs('knowledge')" wire:navigate>
+                            {{ __('Knowledge Base') }}
+                        </flux:sidebar.item>
+                    @endcan
+
+                    @can('prompts.view')
+                        <flux:sidebar.item icon="beaker" :href="route('playground')" :current="request()->routeIs('playground')" wire:navigate>
+                            {{ __('Agent Playground') }}
                         </flux:sidebar.item>
                     @endcan
 
@@ -60,12 +78,6 @@
                     @can('escalations.view')
                         <flux:sidebar.item icon="exclamation-triangle" :href="route('escalations')" :current="request()->routeIs('escalations')" wire:navigate>
                             {{ __('Escalations') }}
-                        </flux:sidebar.item>
-                    @endcan
-
-                    @can('knowledge.view')
-                        <flux:sidebar.item icon="book-open" :href="route('knowledge')" :current="request()->routeIs('knowledge')" wire:navigate>
-                            {{ __('Knowledge Base') }}
                         </flux:sidebar.item>
                     @endcan
 

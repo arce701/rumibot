@@ -41,6 +41,8 @@ class RolesAndPermissionsSeeder extends Seeder
             'billing.manage',
             'settings.view',
             'settings.update',
+            'ai-config.view',
+            'ai-config.update',
         ];
 
         foreach ($permissions as $permission) {

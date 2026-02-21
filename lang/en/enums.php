@@ -59,6 +59,16 @@ return [
         'ycloud' => 'YCloud',
         'meta_cloud' => 'Meta Cloud',
     ],
+    'ai_provider' => [
+        'openai' => 'OpenAI',
+        'anthropic' => 'Anthropic',
+        'gemini' => 'Google Gemini',
+        'groq' => 'Groq',
+        'deepseek' => 'DeepSeek',
+        'mistral' => 'Mistral',
+        'xai' => 'xAI',
+        'openrouter' => 'OpenRouter',
+    ],
     'webhook_event' => [
         'conversation.started' => 'Conversation Started',
         'message.received' => 'Message Received',

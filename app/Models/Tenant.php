@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -17,8 +18,9 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property-read \Illuminate\Database\Eloquent\Collection<int, Lead> $leads
  * @property-read \Illuminate\Database\Eloquent\Collection<int, Escalation> $escalations
  * @property-read \Illuminate\Database\Eloquent\Collection<int, KnowledgeDocument> $knowledgeDocuments
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, LlmCredential> $llmCredentials
+ * @property-read LlmCredential|null $defaultLlmCredential
  */
-
 class Tenant extends Model
 {
     /** @use HasFactory<\Database\Factories\TenantFactory> */
@@ -30,6 +32,11 @@ class Tenant extends Model
         'system_prompt',
         'default_ai_provider',
         'default_ai_model',
+        'default_llm_credential_id',
+        'ai_temperature',
+        'ai_max_tokens',
+        'ai_context_window',
+        'ai_streaming',
         'timezone',
         'locale',
         'is_active',
@@ -40,6 +47,10 @@ class Tenant extends Model
     protected function casts(): array
     {
         return [
+            'ai_temperature' => 'decimal:2',
+            'ai_max_tokens' => 'integer',
+            'ai_context_window' => 'integer',
+            'ai_streaming' => 'boolean',
             'is_active' => 'boolean',
             'is_platform_owner' => 'boolean',
             'settings' => 'array',
@@ -51,6 +62,16 @@ class Tenant extends Model
         return LogOptions::defaults()
             ->logFillable()
             ->logOnlyDirty();
+    }
+
+    public function defaultLlmCredential(): BelongsTo
+    {
+        return $this->belongsTo(LlmCredential::class, 'default_llm_credential_id');
+    }
+
+    public function llmCredentials(): HasMany
+    {
+        return $this->hasMany(LlmCredential::class);
     }
 
     public function users(): BelongsToMany

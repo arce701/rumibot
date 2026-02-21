@@ -14,7 +14,6 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\Log;
-use Laravel\Ai\Enums\Lab;
 
 class ProcessIncomingMessage implements ShouldQueue
 {
@@ -72,7 +71,14 @@ class ProcessIncomingMessage implements ShouldQueue
 
         $agent = new TenantChatAgent($tenant, $this->channel, $conversation);
 
-        $provider = $this->resolveProvider($tenant);
+        $credential = $tenant->defaultLlmCredential;
+        if ($credential) {
+            config()->set("ai.providers.{$credential->provider->value}.key", $credential->api_key);
+        }
+
+        $provider = $credential
+            ? $credential->provider->value
+            : $this->resolveProvider($tenant);
         $model = $this->channel->ai_model_override ?? $tenant->default_ai_model ?? config('rumibot.ai.default_model');
 
         $response = $agent->prompt(
