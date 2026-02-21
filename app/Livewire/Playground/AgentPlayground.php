@@ -46,6 +46,12 @@ class AgentPlayground extends Component
         $this->messageText = '';
     }
 
+    public function updatedSelectedChannelId(): void
+    {
+        $this->chatMessages = [];
+        $this->messageText = '';
+    }
+
     public function sendMessage(): void
     {
         $this->authorize('prompts.view');

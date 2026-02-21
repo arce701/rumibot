@@ -6,7 +6,7 @@
 
     {{-- Top bar: Channel selector + info badges + clear button --}}
     <div class="mb-4 flex flex-wrap items-center gap-3">
-        <flux:select wire:model.live="selectedChannelId" wire:change="selectChannel($event.target.value)" class="w-64">
+        <flux:select wire:model.live="selectedChannelId" class="w-64">
             @foreach ($channels as $channel)
                 <flux:select.option :value="$channel->id">{{ $channel->name }}</flux:select.option>
             @endforeach
@@ -27,7 +27,7 @@
         <div class="rounded-lg border border-zinc-200 dark:border-zinc-700">
             <button @click="showTools = !showTools" class="flex w-full items-center justify-between px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
                 <span>{{ __('Tools') }} (1)</span>
-                <svg :class="showTools && 'rotate-180'" class="h-4 w-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                <flux:icon.chevron-down ::class="showTools && 'rotate-180'" class="size-4 transition-transform" />
             </button>
             <div x-show="showTools" x-collapse class="border-t border-zinc-200 px-4 py-3 dark:border-zinc-700">
                 <div class="flex items-center gap-2">
@@ -40,7 +40,7 @@
         <div class="rounded-lg border border-zinc-200 dark:border-zinc-700">
             <button @click="showDocs = !showDocs" class="flex w-full items-center justify-between px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
                 <span>{{ __('Documents') }} ({{ $this->documentCount }})</span>
-                <svg :class="showDocs && 'rotate-180'" class="h-4 w-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                <flux:icon.chevron-down ::class="showDocs && 'rotate-180'" class="size-4 transition-transform" />
             </button>
             <div x-show="showDocs" x-collapse class="border-t border-zinc-200 px-4 py-3 dark:border-zinc-700">
                 @if ($this->documents->isEmpty())
@@ -70,9 +70,8 @@
             }
          }"
          x-init="scrollToBottom()"
-         @chat-updated.window="scrollToBottom()"
     >
-        <div x-ref="chatContainer" class="max-h-[500px] space-y-4 overflow-y-auto p-6" wire:poll.visible.30s>
+        <div x-ref="chatContainer" class="max-h-[500px] space-y-4 overflow-y-auto p-6">
             @forelse ($chatMessages as $index => $message)
                 <div wire:key="msg-{{ $index }}" class="flex {{ $message['role'] === 'user' ? 'justify-end' : 'justify-start' }}">
                     <div class="max-w-[75%] rounded-lg px-4 py-3 {{ $message['role'] === 'user' ? 'bg-blue-600 text-white' : 'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100' }}">
@@ -81,9 +80,7 @@
                 </div>
             @empty
                 <div class="flex flex-col items-center justify-center py-16 text-center">
-                    <svg class="mb-4 h-16 w-16 text-zinc-300 dark:text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
-                    </svg>
+                    <flux:icon.beaker class="mb-4 size-16 text-zinc-300 dark:text-zinc-600" />
                     <flux:heading size="base">{{ __('Agent Playground') }}</flux:heading>
                     <flux:text class="mt-1 text-zinc-500">{{ __('Start testing your AI agent by sending a message.') }}</flux:text>
                 </div>
@@ -104,17 +101,16 @@
 
         {{-- Input area --}}
         <div class="border-t border-zinc-200 p-4 dark:border-zinc-700">
-            <form wire:submit="sendMessage" class="flex gap-2"
-                  x-data
-                  @keydown.enter.prevent="if (!$event.shiftKey) { $wire.sendMessage(); }"
-            >
-                <textarea wire:model="messageText"
+            <form wire:submit="sendMessage" class="flex gap-2">
+                <textarea wire:model.live="messageText"
                     rows="1"
-                    :disabled="$wire.isLoading"
+                    wire:loading.attr="disabled"
+                    wire:target="sendMessage"
                     class="flex-1 resize-none rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
                     placeholder="{{ __('Type a message...') }}"
+                    x-on:keydown.enter.prevent="if (!$event.shiftKey) { $wire.sendMessage(); }"
                 ></textarea>
-                <flux:button type="submit" variant="primary" icon="paper-airplane" :disabled="$isLoading" />
+                <flux:button type="submit" variant="primary" icon="paper-airplane" />
             </form>
             <flux:text size="xs" class="mt-1 text-zinc-400">{{ __('Enter to send, Shift+Enter for new line') }}</flux:text>
         </div>
