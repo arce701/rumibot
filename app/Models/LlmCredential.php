@@ -19,7 +19,6 @@ class LlmCredential extends Model
         'name',
         'provider',
         'api_key',
-        'is_default',
         'metadata',
     ];
 
@@ -28,7 +27,6 @@ class LlmCredential extends Model
         return [
             'provider' => AiProvider::class,
             'api_key' => 'encrypted',
-            'is_default' => 'boolean',
             'metadata' => 'array',
         ];
     }

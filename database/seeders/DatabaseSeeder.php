@@ -25,8 +25,6 @@ class DatabaseSeeder extends Seeder
             'name' => 'RumiStar E.I.R.L.',
             'slug' => 'rumistar',
             'system_prompt' => 'Eres el asistente virtual de iTrade, un software de comercio exterior desarrollado por RumiStar. Ayudas a prospectos interesados en el sistema respondiendo consultas sobre funcionalidades, precios, y beneficios. Eres amable, profesional y conoces a fondo el producto.',
-            'default_ai_provider' => 'openai',
-            'default_ai_model' => 'gpt-4o-mini',
             'timezone' => 'America/Lima',
             'locale' => 'es',
             'is_platform_owner' => true,

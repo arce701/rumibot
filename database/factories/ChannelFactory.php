@@ -25,11 +25,9 @@ class ChannelFactory extends Factory
             'provider_type' => WhatsAppProviderType::YCloud,
             'provider_api_key' => fake()->sha256(),
             'provider_phone_number_id' => fake()->numerify('##########'),
-            'provider_business_account_id' => fake()->numerify('##########'),
             'provider_webhook_verify_token' => Str::random(32),
             'system_prompt_override' => null,
             'ai_model_override' => null,
-            'ai_temperature' => null,
             'is_active' => true,
             'settings' => [],
         ];

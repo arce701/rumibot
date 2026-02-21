@@ -17,11 +17,9 @@ return new class extends Migration
             $table->string('provider_type', 20)->default('ycloud');
             $table->text('provider_api_key')->nullable();
             $table->string('provider_phone_number_id', 50)->nullable();
-            $table->string('provider_business_account_id', 50)->nullable();
             $table->string('provider_webhook_verify_token', 100)->nullable();
             $table->text('system_prompt_override')->nullable();
             $table->string('ai_model_override', 100)->nullable();
-            $table->decimal('ai_temperature', 3, 2)->nullable();
             $table->boolean('is_active')->default(true);
             $table->jsonb('settings')->nullable();
             $table->timestamps();

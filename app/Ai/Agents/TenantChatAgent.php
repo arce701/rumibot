@@ -46,7 +46,7 @@ class TenantChatAgent implements Agent, Conversational, HasMiddleware, HasTools
 
     public function messages(): iterable
     {
-        $limit = $this->tenant->ai_context_window ?? config('rumibot.ai.max_conversation_messages', 50);
+        $limit = $this->tenant->ai_context_window ?? 50;
 
         return $this->conversation->messages()
             ->withoutGlobalScopes()

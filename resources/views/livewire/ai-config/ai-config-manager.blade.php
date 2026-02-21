@@ -53,8 +53,12 @@
         @endif
 
         @if ($credentials->isEmpty())
-            <div class="rounded-xl border border-zinc-200 bg-white p-12 text-center dark:border-zinc-700 dark:bg-zinc-900">
-                <flux:text>{{ __('No credentials configured yet. Add your first AI provider API key.') }}</flux:text>
+            <div class="rounded-xl border border-amber-200 bg-amber-50 p-6 text-center dark:border-amber-800 dark:bg-amber-900/20">
+                <flux:icon.exclamation-triangle class="mx-auto mb-2 size-8 text-amber-500" />
+                <flux:heading size="base">{{ __('No AI credentials configured') }}</flux:heading>
+                <flux:text size="sm" class="mt-1 text-amber-700 dark:text-amber-400">
+                    {{ __('You need to add an AI provider API key before the agent can respond to messages.') }}
+                </flux:text>
             </div>
         @else
             <div class="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-700">
@@ -109,65 +113,71 @@
         <flux:heading size="lg" class="mb-4">{{ __('Model Configuration') }}</flux:heading>
 
         <div class="rounded-xl border border-zinc-200 bg-white p-6 dark:border-zinc-700 dark:bg-zinc-900">
-            <form wire:submit="saveModelSettings" class="space-y-6">
-                <div class="grid gap-4 md:grid-cols-2">
-                    <flux:select wire:model.live="selectedCredentialId" :label="__('LLM Credential')">
-                        <flux:select.option value="">{{ __('Use environment default') }}</flux:select.option>
-                        @foreach ($credentials as $credential)
-                            <flux:select.option :value="$credential->id">{{ $credential->name }} ({{ $credential->provider->label() }})</flux:select.option>
-                        @endforeach
-                    </flux:select>
-
-                    <flux:select wire:model="selectedModel" :label="__('Model')">
-                        <flux:select.option value="">{{ __('Select a model') }}</flux:select.option>
-                        @foreach ($this->availableModels as $model)
-                            <flux:select.option :value="$model">{{ $model }}</flux:select.option>
-                        @endforeach
-                    </flux:select>
+            @if ($credentials->isEmpty())
+                <div class="py-4 text-center">
+                    <flux:text class="text-zinc-500">{{ __('Add an LLM credential above to configure your model settings.') }}</flux:text>
                 </div>
+            @else
+                <form wire:submit="saveModelSettings" class="space-y-6">
+                    <div class="grid gap-4 md:grid-cols-2">
+                        <flux:select wire:model.live="selectedCredentialId" :label="__('LLM Credential')">
+                            <flux:select.option value="">{{ __('Select a credential') }}</flux:select.option>
+                            @foreach ($credentials as $credential)
+                                <flux:select.option :value="$credential->id">{{ $credential->name }} ({{ $credential->provider->label() }})</flux:select.option>
+                            @endforeach
+                        </flux:select>
 
-                <div>
-                    <label class="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                        {{ __('Temperature') }}: {{ number_format($aiTemperature, 2) }}
-                    </label>
-                    <input type="range" wire:model.live="aiTemperature" min="0" max="2" step="0.01"
-                        class="h-2 w-full cursor-pointer appearance-none rounded-lg bg-zinc-200 accent-blue-600 dark:bg-zinc-700" />
-                    <div class="mt-1 flex justify-between text-xs text-zinc-500">
-                        <span>0.00 ({{ __('Precise') }})</span>
-                        <span>2.00 ({{ __('Creative') }})</span>
+                        <flux:select wire:model="selectedModel" :label="__('Model')">
+                            <flux:select.option value="">{{ __('Select a model') }}</flux:select.option>
+                            @foreach ($this->availableModels as $model)
+                                <flux:select.option :value="$model">{{ $model }}</flux:select.option>
+                            @endforeach
+                        </flux:select>
                     </div>
-                </div>
 
-                <div>
-                    <label class="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                        {{ __('Max Tokens') }}: {{ number_format($aiMaxTokens) }}
-                    </label>
-                    <input type="range" wire:model.live="aiMaxTokens" min="100" max="8192" step="50"
-                        class="h-2 w-full cursor-pointer appearance-none rounded-lg bg-zinc-200 accent-blue-600 dark:bg-zinc-700" />
-                    <div class="mt-1 flex justify-between text-xs text-zinc-500">
-                        <span>100</span>
-                        <span>8192</span>
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                            {{ __('Temperature') }}: {{ number_format($aiTemperature, 2) }}
+                        </label>
+                        <input type="range" wire:model.live="aiTemperature" min="0" max="2" step="0.01"
+                            class="h-2 w-full cursor-pointer appearance-none rounded-lg bg-zinc-200 accent-blue-600 dark:bg-zinc-700" />
+                        <div class="mt-1 flex justify-between text-xs text-zinc-500">
+                            <span>0.00 ({{ __('Precise') }})</span>
+                            <span>2.00 ({{ __('Creative') }})</span>
+                        </div>
                     </div>
-                </div>
 
-                <div>
-                    <label class="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                        {{ __('Context Window') }}: {{ $aiContextWindow }} {{ __('context messages') }}
-                    </label>
-                    <input type="range" wire:model.live="aiContextWindow" min="1" max="100" step="1"
-                        class="h-2 w-full cursor-pointer appearance-none rounded-lg bg-zinc-200 accent-blue-600 dark:bg-zinc-700" />
-                    <div class="mt-1 flex justify-between text-xs text-zinc-500">
-                        <span>1</span>
-                        <span>100</span>
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                            {{ __('Max Tokens') }}: {{ number_format($aiMaxTokens) }}
+                        </label>
+                        <input type="range" wire:model.live="aiMaxTokens" min="100" max="8192" step="50"
+                            class="h-2 w-full cursor-pointer appearance-none rounded-lg bg-zinc-200 accent-blue-600 dark:bg-zinc-700" />
+                        <div class="mt-1 flex justify-between text-xs text-zinc-500">
+                            <span>100</span>
+                            <span>8192</span>
+                        </div>
                     </div>
-                </div>
 
-                <flux:switch wire:model="aiStreaming" :label="__('Streaming')" :description="__('Enable streaming responses (experimental).')" />
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                            {{ __('Context Window') }}: {{ $aiContextWindow }} {{ __('context messages') }}
+                        </label>
+                        <input type="range" wire:model.live="aiContextWindow" min="1" max="100" step="1"
+                            class="h-2 w-full cursor-pointer appearance-none rounded-lg bg-zinc-200 accent-blue-600 dark:bg-zinc-700" />
+                        <div class="mt-1 flex justify-between text-xs text-zinc-500">
+                            <span>1</span>
+                            <span>100</span>
+                        </div>
+                    </div>
 
-                @can('ai-config.update')
-                    <flux:button type="submit" variant="primary">{{ __('Save Configuration') }}</flux:button>
-                @endcan
-            </form>
+                    <flux:switch wire:model="aiStreaming" :label="__('Streaming')" :description="__('Enable streaming responses (experimental).')" />
+
+                    @can('ai-config.update')
+                        <flux:button type="submit" variant="primary">{{ __('Save Configuration') }}</flux:button>
+                    @endcan
+                </form>
+            @endif
         </div>
     </div>
 </div>

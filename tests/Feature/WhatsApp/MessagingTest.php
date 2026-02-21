@@ -6,6 +6,7 @@ use App\Jobs\SendWhatsAppMessage;
 use App\Models\Channel;
 use App\Models\Conversation;
 use App\Models\Enums\ConversationStatus;
+use App\Models\LlmCredential;
 use App\Models\Message;
 use App\Models\Tenant;
 use App\Services\WhatsApp\InboundMessage;
@@ -16,7 +17,17 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 
 beforeEach(function () {
-    $this->tenant = Tenant::factory()->create();
+    $this->tenant = Tenant::factory()->create([
+        'default_ai_model' => 'gpt-4o-mini',
+    ]);
+
+    $credential = LlmCredential::factory()->create([
+        'tenant_id' => $this->tenant->id,
+        'provider' => 'openai',
+        'api_key' => 'test-key',
+    ]);
+    $this->tenant->update(['default_llm_credential_id' => $credential->id]);
+
     $this->channel = Channel::factory()->create([
         'tenant_id' => $this->tenant->id,
         'provider_api_key' => 'test-api-key',

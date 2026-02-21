@@ -28,16 +28,11 @@ test('create channel with all fields', function () {
     Livewire::actingAs($this->owner)
         ->test(\App\Livewire\Channels\ChannelManager::class)
         ->set('name', 'Test Sales Channel')
-        ->set('slug', 'test-sales')
         ->set('type', 'sales')
         ->set('providerType', 'ycloud')
         ->set('providerApiKey', 'test-api-key-123')
         ->set('providerPhoneNumberId', '1234567890')
-        ->set('providerBusinessAccountId', '9876543210')
         ->set('providerWebhookVerifyToken', 'verify-token')
-        ->set('systemPromptOverride', 'Custom sales prompt')
-        ->set('aiModelOverride', 'gpt-4o')
-        ->set('aiTemperature', 0.7)
         ->set('isActive', true)
         ->set('showForm', true)
         ->call('create')
@@ -46,11 +41,10 @@ test('create channel with all fields', function () {
     $this->assertDatabaseHas('channels', [
         'tenant_id' => $this->tenant->id,
         'name' => 'Test Sales Channel',
-        'slug' => 'test-sales',
+        'slug' => 'test-sales-channel',
         'type' => 'sales',
         'provider_type' => 'ycloud',
         'provider_phone_number_id' => '1234567890',
-        'system_prompt_override' => 'Custom sales prompt',
     ]);
 });
 

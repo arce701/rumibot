@@ -50,11 +50,11 @@ A **multi-tenant SaaS** platform where Latin American businesses configure AI ch
 | `app/Http/Middleware/EnsureTenantContext.php` | Aborts 403 if no tenant context is set (guards tenant-only routes). |
 | `app/Http/Middleware/SetTenantFromToken.php` | API middleware. Resolves tenant from Sanctum token's user. |
 
-### Tenant-Scoped Models (11 models)
+### Tenant-Scoped Models (12 models)
 
 All use the `BelongsToTenant` trait and are filtered by `TenantScope`:
 
-`Channel`, `Conversation`, `Message`, `Lead`, `Escalation`, `KnowledgeDocument`, `KnowledgeChunk`, `TenantIntegration`, `Subscription`, `SubscriptionUsage`, `PaymentHistory`
+`Channel`, `Conversation`, `Message`, `Lead`, `Escalation`, `KnowledgeDocument`, `KnowledgeChunk`, `TenantIntegration`, `Subscription`, `SubscriptionUsage`, `PaymentHistory`, `LlmCredential`
 
 ### Cross-Tenant Queries
 
@@ -74,7 +74,7 @@ WhatsApp webhook routes (`/api/webhooks/whatsapp/{tenantUuid}/{channelSlug}`) re
 |-----------|---------------|
 | Auth backend | Laravel Fortify (headless) |
 | 2FA | Fortify TOTP (`FortifyServiceProvider`) |
-| Registration | `App\Actions\Fortify\CreateNewUser` |
+| Registration | `App\Actions\Fortify\CreateNewUser` — creates Tenant + User + pivot + role in a DB transaction. Includes `company_name` field. |
 | Password reset | `App\Actions\Fortify\ResetUserPassword` |
 | API auth | Laravel Sanctum (token-based) |
 
@@ -126,7 +126,7 @@ YCloud webhook → WhatsAppWebhookController → WhatsAppWebhookHandler → Proc
 | `app/Services/WhatsApp/WhatsAppWebhookHandler.php` | Validates and parses incoming webhook payloads |
 | `app/Services/WhatsApp/InboundMessage.php` | DTO for normalized inbound messages |
 | `app/Http/Controllers/WhatsAppWebhookController.php` | Handles GET (verify) and POST (receive) webhook requests |
-| `app/Models/Channel.php` | WhatsApp channel config. `provider_api_key` is encrypted via cast. |
+| `app/Models/Channel.php` | WhatsApp channel config. `provider_api_key` is encrypted via cast. Slug auto-generated from name. |
 | `app/Models/Conversation.php` | Tracks conversations with contacts |
 | `app/Models/Message.php` | Immutable message log (role: user/assistant/system) |
 
@@ -151,11 +151,26 @@ Defined in `app/Models/Enums/ChannelType.php`:
 
 | File | Purpose |
 |------|---------|
-| `app/Ai/Agents/TenantChatAgent.php` | Main agent. Implements `Agent`, `Conversational`, `HasTools`, `HasMiddleware`. |
+| `app/Ai/Agents/TenantChatAgent.php` | Main production agent. Implements `Agent`, `Conversational`, `HasTools`, `HasMiddleware`. |
+| `app/Ai/Agents/PlaygroundChatAgent.php` | Testing agent for Agent Playground. Same prompts as TenantChatAgent but only `SimilaritySearch` tool (no side effects). No `HasMiddleware` (no token tracking). |
 | `app/Ai/Tools/CaptureLead.php` | Tool: extracts prospect data, saves as Lead. Only active on `sales` channels. |
 | `app/Ai/Tools/EscalateToHuman.php` | Tool: triggers human escalation |
 | `app/Ai/Tools/SendMedia.php` | Tool: sends images, documents, video links via WhatsApp |
 | `app/Ai/Middleware/TrackTokenUsage.php` | Agent middleware: records token counts on the conversation |
+| `app/Models/LlmCredential.php` | Stores encrypted API keys per provider per tenant. Uses `BelongsToTenant` trait. |
+
+### LLM Credential System (Mandatory)
+
+**There are NO env-level default providers or API keys.** Every tenant MUST configure an LLM credential before using AI features. The system will NOT fall back to any environment variable.
+
+| Concept | Implementation |
+|---------|---------------|
+| `LlmCredential` | Stores `provider` (AiProvider enum), `api_key` (encrypted), `name` per tenant |
+| Default credential | `Tenant.default_llm_credential_id` → FK to `llm_credentials` |
+| Default model | `Tenant.default_ai_model` (string, e.g. "gpt-4o-mini") |
+| AI settings | `Tenant.ai_temperature`, `ai_max_tokens`, `ai_context_window`, `ai_streaming` |
+| Runtime config | Before calling `prompt()`, the API key is set via `config()->set("ai.providers.{provider}.key", $apiKey)` |
+| No credential → no AI | `ProcessIncomingMessage` returns early with log warning. `AgentPlayground` shows friendly message. |
 
 ### Agent Instructions (Multi-Layer Prompts)
 
@@ -169,10 +184,10 @@ The `system_prompt_override` on the channel defines whether the bot acts as a sa
 
 | Tool | Purpose | Active On |
 |------|---------|-----------|
-| `SimilaritySearch` | RAG search on `KnowledgeChunk` embeddings, filtered by `channel_scope` | All channels |
-| `SendMedia` | Send images/docs/videos via WhatsApp | All channels |
-| `CaptureLead` | Extract and save prospect info | Sales channels only |
-| `EscalateToHuman` | Trigger escalation to human agent | All channels |
+| `SimilaritySearch` | RAG search on `KnowledgeChunk` embeddings, filtered by `channel_scope` | All channels (production + playground) |
+| `SendMedia` | Send images/docs/videos via WhatsApp | Production only |
+| `CaptureLead` | Extract and save prospect info | Production, sales channels only |
+| `EscalateToHuman` | Trigger escalation to human agent | Production only |
 
 ---
 
@@ -425,6 +440,7 @@ Models with `LogsActivity` trait: `Tenant`, `Channel`, `KnowledgeDocument`, `Lea
 |-------|-------|------|
 | `Channel` | `provider_api_key` | `encrypted` |
 | `TenantIntegration` | `secret` | `encrypted` |
+| `LlmCredential` | `api_key` | `encrypted` |
 
 ### Rate Limiting
 
@@ -536,13 +552,14 @@ return [
 
 ## 16. File Index
 
-### Models (16)
+### Models (17)
 
 | Model | Traits | Notes |
 |-------|--------|-------|
 | `User` | `HasRoles`, `SoftDeletes` | `is_super_admin`, `current_tenant_id`, `locale` |
-| `Tenant` | `SoftDeletes`, `LogsActivity` | `is_platform_owner`, `system_prompt` |
-| `Channel` | `BelongsToTenant`, `SoftDeletes`, `LogsActivity` | `provider_api_key` encrypted |
+| `Tenant` | `SoftDeletes`, `LogsActivity` | `is_platform_owner`, `system_prompt`, `default_llm_credential_id`, `default_ai_model`, AI settings |
+| `LlmCredential` | `BelongsToTenant`, `SoftDeletes` | `api_key` encrypted, `provider` (AiProvider enum) |
+| `Channel` | `BelongsToTenant`, `SoftDeletes`, `LogsActivity` | `provider_api_key` encrypted, slug auto-generated |
 | `Conversation` | `BelongsToTenant`, `SoftDeletes` | Token tracking |
 | `Message` | `BelongsToTenant` | Immutable, no soft delete |
 | `Lead` | `BelongsToTenant`, `SoftDeletes`, `LogsActivity` | Captured by AI |
@@ -557,12 +574,13 @@ return [
 | `SubscriptionUsage` | `BelongsToTenant` | Usage tracking |
 | `PaymentHistory` | `BelongsToTenant` | Immutable audit log |
 
-### Enums (12)
+### Enums (13)
 
 All in `app/Models/Enums/`. Each enum has a `label(): string` method returning translated labels via `__('enums.{group}.{value}')`.
 
 | Enum | Translation group | Values |
 |------|-------------------|--------|
+| `AiProvider` | `enums.ai_provider` | OpenAi, Anthropic, Gemini, Groq, DeepSeek, Mistral, XAi, OpenRouter. Has `models(): array` method. |
 | `ChannelType` | `enums.channel_type` | Sales, Support |
 | `ConversationStatus` | `enums.conversation_status` | Active, Closed, Escalated |
 | `LeadStatus` | `enums.lead_status` | New, Contacted, Converted, Lost |
@@ -576,16 +594,18 @@ All in `app/Models/Enums/`. Each enum has a `label(): string` method returning t
 | `WhatsAppProviderType` | `enums.whatsapp_provider` | YCloud, MetaCloud |
 | `WebhookEvent` | `enums.webhook_event` | ConversationStarted, MessageReceived, LeadCaptured, EscalationTriggered, ConversationClosed |
 
-### Livewire Components (20)
+### Livewire Components (22)
 
 | Component | Path | Purpose |
 |-----------|------|---------|
 | `Dashboard` | `app/Livewire/Dashboard.php` | Tenant dashboard |
-| `ChannelManager` | `app/Livewire/Channels/ChannelManager.php` | WhatsApp channel CRUD |
+| `ChannelManager` | `app/Livewire/Channels/ChannelManager.php` | WhatsApp channel CRUD (simplified form, auto-slug) |
+| `AiConfigManager` | `app/Livewire/AiConfig/AiConfigManager.php` | LLM credentials CRUD + model configuration |
+| `PromptEditor` | `app/Livewire/Prompts/PromptEditor.php` | System prompt editing |
+| `KnowledgeManager` | `app/Livewire/Knowledge/KnowledgeManager.php` | Document upload/management |
+| `AgentPlayground` | `app/Livewire/Playground/AgentPlayground.php` | Test AI agent with RAG (in-memory chat, no persistence) |
 | `ConversationList` | `app/Livewire/Conversations/ConversationList.php` | Filterable list + export |
 | `ConversationDetail` | `app/Livewire/Conversations/ConversationDetail.php` | Chat view |
-| `KnowledgeManager` | `app/Livewire/Knowledge/KnowledgeManager.php` | Document upload/management |
-| `PromptEditor` | `app/Livewire/Prompts/PromptEditor.php` | System prompt editing |
 | `LeadsList` | `app/Livewire/Leads/LeadsList.php` | Lead list + export |
 | `EscalationQueue` | `app/Livewire/Escalations/EscalationQueue.php` | Escalation management |
 | `IntegrationManager` | `app/Livewire/Integrations/IntegrationManager.php` | Integration CRUD |
@@ -616,16 +636,16 @@ All in `app/Models/Enums/`. Each enum has a `label(): string` method returning t
 
 | File | Purpose |
 |------|---------|
-| `routes/web.php` | Tenant routes (dashboard, channels, conversations, leads, escalations, knowledge, prompts, integrations, billing, team, activity) + Platform routes (`/platform/*`) |
+| `routes/web.php` | Tenant routes (dashboard, channels, ai-config, prompts, knowledge, playground, conversations, leads, escalations, integrations, billing, team, activity) + Platform routes (`/platform/*`) |
 | `routes/api.php` | WhatsApp webhooks, Payment webhooks, API v1 (Sanctum) |
 | `routes/settings.php` | User profile, password, 2FA settings |
 | `routes/console.php` | Scheduled commands (backup:clean, backup:run) |
 
 ### Config Files (20)
 
-Key custom configs: `config/ai.php`, `config/rumibot.php`, `config/permission.php`, `config/backup.php`, `config/pulse.php`, `config/excel.php`
+Key custom configs: `config/ai.php` (provider definitions), `config/rumibot.php` (only `ai.timeout` — no default provider/model), `config/permission.php`, `config/backup.php`, `config/pulse.php`, `config/excel.php`
 
-### Database (26 migrations, 3 seeders)
+### Database (27 migrations, 3 seeders)
 
 **Seeders:**
 - `RolesAndPermissionsSeeder` — Roles + permissions for Spatie Permission
@@ -638,11 +658,11 @@ Key custom configs: `config/ai.php`, `config/rumibot.php`, `config/permission.ph
 
 **Framework:** Pest 4 | **Database:** PostgreSQL (same as production)
 
-### Test Suite (44 files, 323+ tests)
+### Test Suite (45 files, 362+ tests)
 
 | Category | Files | What They Test |
 |----------|-------|----------------|
-| Auth | 6 | Login, registration, password reset, email verification, 2FA |
+| Auth | 6 | Login, registration (with tenant creation), password reset, email verification, 2FA |
 | Settings | 3 | Profile update, password update, 2FA management |
 | WhatsApp | 3 | Webhook validation, messaging, channel config |
 | AI | 3 | Agent tools, ProcessIncomingMessage job, TenantChatAgent |
@@ -651,10 +671,13 @@ Key custom configs: `config/ai.php`, `config/rumibot.php`, `config/permission.ph
 | Panel | 2 | Tenant panel access, CRUD operations |
 | Platform | 2 | Super-admin access, plan management |
 | Integrations | 3 | Automation API, integration event dispatch, event triggers |
-| Security | 3 | Credential encryption, rate limiting, tenant isolation audit (11 models) |
+| Security | 3 | Credential encryption, rate limiting, tenant isolation audit (12 models) |
 | Hardening | 2 | Backup config, Pulse access |
 | Exports | 2 | Leads export, conversations export |
 | Logging | 1 | Tenant context in logs |
+| Models | 1 | LlmCredential (UUID, encryption, tenant scope, soft deletes) |
+| AiConfig | 1 | AiConfigManager (CRUD credentials, model settings, permissions) |
+| Playground | 1 | AgentPlayground (chat, channel selection, permissions) |
 | Other | 4 | Dashboard, tenant scoping, escalation notifications |
 | Unit | 2 | TextChunker, example |
 
@@ -753,7 +776,7 @@ Each function operates on a separate WhatsApp number (channel) with its own pers
 
 ## Roadmap
 
-All 10 implementation phases (0-9) are complete. Pending items:
+All 10 implementation phases (0-9) are complete. Post-phase additions: LLM credential management, AI Configuration page, Agent Playground, registration with tenant auto-creation, channel form simplification.
 
 | Item | Description | Priority |
 |------|-------------|----------|
@@ -761,3 +784,4 @@ All 10 implementation phases (0-9) are complete. Pending items:
 | Production deployment | Domain, SSL, server setup, real YCloud/MercadoPago/AI provider keys | Next |
 | Landing page | Branded public landing at `/` with i18n support (ES/EN/PT_BR) — partially done | In progress |
 | Analytics dashboard | `Livewire/Analytics/AnalyticsDashboard.php` — metrics and charts per tenant | Pending |
+| Streaming responses | `Tenant.ai_streaming` column exists but not yet wired. Pending Laravel AI SDK support for streaming in agents. | Pending |

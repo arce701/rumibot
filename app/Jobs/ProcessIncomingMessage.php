@@ -69,17 +69,31 @@ class ProcessIncomingMessage implements ShouldQueue
     {
         $tenant = $this->channel->tenant;
 
-        $agent = new TenantChatAgent($tenant, $this->channel, $conversation);
-
         $credential = $tenant->defaultLlmCredential;
-        if ($credential) {
-            config()->set("ai.providers.{$credential->provider->value}.key", $credential->api_key);
+        if (! $credential) {
+            Log::warning('No LLM credential configured for tenant', [
+                'tenant_id' => $tenant->id,
+                'channel_id' => $this->channel->id,
+            ]);
+
+            return;
         }
 
-        $provider = $credential
-            ? $credential->provider->value
-            : $this->resolveProvider($tenant);
-        $model = $this->channel->ai_model_override ?? $tenant->default_ai_model ?? config('rumibot.ai.default_model');
+        $agent = new TenantChatAgent($tenant, $this->channel, $conversation);
+
+        config()->set("ai.providers.{$credential->provider->value}.key", $credential->api_key);
+
+        $provider = $credential->provider->value;
+        $model = $this->channel->ai_model_override ?? $tenant->default_ai_model;
+
+        if (! $model) {
+            Log::warning('No AI model configured for tenant', [
+                'tenant_id' => $tenant->id,
+                'channel_id' => $this->channel->id,
+            ]);
+
+            return;
+        }
 
         $response = $agent->prompt(
             $this->inboundMessage->content,
@@ -98,7 +112,7 @@ class ProcessIncomingMessage implements ShouldQueue
             'tokens_input' => $response->usage->promptTokens ?? null,
             'tokens_output' => $response->usage->completionTokens ?? null,
             'metadata' => [
-                'provider' => is_array($provider) ? 'failover' : ($provider ?? config('rumibot.ai.default_provider')),
+                'provider' => $provider,
             ],
         ]);
 
@@ -106,21 +120,6 @@ class ProcessIncomingMessage implements ShouldQueue
         $conversation->update(['last_message_at' => now()]);
 
         SendWhatsAppMessage::dispatch($conversation, $responseText);
-    }
-
-    /**
-     * @return string|string[]
-     */
-    private function resolveProvider($tenant): string|array
-    {
-        $primary = $tenant->default_ai_provider ?? config('rumibot.ai.default_provider');
-        $fallbacks = config('rumibot.ai.fallback_providers', []);
-
-        if (count($fallbacks) > 1) {
-            return $fallbacks;
-        }
-
-        return $primary;
     }
 
     private function findOrCreateConversation(): Conversation

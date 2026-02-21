@@ -6,6 +6,7 @@ use App\Jobs\SendWhatsAppMessage;
 use App\Models\Channel;
 use App\Models\Conversation;
 use App\Models\Enums\ConversationStatus;
+use App\Models\LlmCredential;
 use App\Models\Message;
 use App\Models\Tenant;
 use App\Services\WhatsApp\InboundMessage;
@@ -14,7 +15,16 @@ use Illuminate\Support\Facades\Queue;
 beforeEach(function () {
     $this->tenant = Tenant::factory()->create([
         'system_prompt' => 'Eres el asistente de pruebas.',
+        'default_ai_model' => 'gpt-4o-mini',
     ]);
+
+    $credential = LlmCredential::factory()->create([
+        'tenant_id' => $this->tenant->id,
+        'provider' => 'openai',
+        'api_key' => 'test-key',
+    ]);
+    $this->tenant->update(['default_llm_credential_id' => $credential->id]);
+
     $this->channel = Channel::factory()->sales()->create(['tenant_id' => $this->tenant->id]);
 });
 
@@ -161,7 +171,7 @@ test('job updates last message at timestamp', function () {
 test('job uses channel ai model override when set', function () {
     $channel = Channel::factory()->sales()->create([
         'tenant_id' => $this->tenant->id,
-        'ai_model_override' => 'claude-3-haiku',
+        'ai_model_override' => 'claude-sonnet-4-5-20250514',
     ]);
 
     TenantChatAgent::fake(['Respuesta con modelo override']);
@@ -175,7 +185,7 @@ test('job uses channel ai model override when set', function () {
         ->where('role', 'assistant')
         ->first();
 
-    expect($assistantMessage->model_used)->toBe('claude-3-haiku');
+    expect($assistantMessage->model_used)->toBe('claude-sonnet-4-5-20250514');
 });
 
 test('job stores model used in assistant message metadata', function () {

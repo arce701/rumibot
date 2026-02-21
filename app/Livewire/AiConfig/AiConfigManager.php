@@ -65,12 +65,18 @@ class AiConfigManager extends Component
             'credentialApiKey' => 'required|string|max:500',
         ]);
 
-        LlmCredential::create([
+        $credential = LlmCredential::create([
             'tenant_id' => auth()->user()->currentTenant->id,
             'name' => $this->credentialName,
             'provider' => $this->credentialProvider,
             'api_key' => $this->credentialApiKey,
         ]);
+
+        $tenant = auth()->user()->currentTenant;
+        if (! $tenant->default_llm_credential_id) {
+            $tenant->update(['default_llm_credential_id' => $credential->id]);
+            $this->selectedCredentialId = $credential->id;
+        }
 
         $this->resetCredentialForm();
         session()->flash('message', __('Credential created successfully.'));
@@ -128,7 +134,12 @@ class AiConfigManager extends Component
 
         $tenant = auth()->user()->currentTenant;
         if ($tenant->default_llm_credential_id === $credential->id) {
-            $tenant->update(['default_llm_credential_id' => null]);
+            $tenant->update([
+                'default_llm_credential_id' => null,
+                'default_ai_model' => null,
+            ]);
+            $this->selectedCredentialId = null;
+            $this->selectedModel = null;
         }
 
         $credential->delete();
@@ -143,8 +154,12 @@ class AiConfigManager extends Component
         LlmCredential::findOrFail($credentialId);
 
         $tenant = auth()->user()->currentTenant;
-        $tenant->update(['default_llm_credential_id' => $credentialId]);
+        $tenant->update([
+            'default_llm_credential_id' => $credentialId,
+            'default_ai_model' => null,
+        ]);
         $this->selectedCredentialId = $credentialId;
+        $this->selectedModel = null;
 
         session()->flash('message', __('Default credential updated.'));
     }
@@ -154,6 +169,8 @@ class AiConfigManager extends Component
         $this->authorize('ai-config.update');
 
         $this->validate([
+            'selectedCredentialId' => 'required|exists:llm_credentials,id',
+            'selectedModel' => 'required|string',
             'aiTemperature' => 'required|numeric|min:0|max:2',
             'aiMaxTokens' => 'required|integer|min:100|max:8192',
             'aiContextWindow' => 'required|integer|min:1|max:100',
@@ -162,19 +179,14 @@ class AiConfigManager extends Component
 
         $tenant = auth()->user()->currentTenant;
 
-        $data = [
+        $tenant->update([
             'default_llm_credential_id' => $this->selectedCredentialId,
+            'default_ai_model' => $this->selectedModel,
             'ai_temperature' => $this->aiTemperature,
             'ai_max_tokens' => $this->aiMaxTokens,
             'ai_context_window' => $this->aiContextWindow,
             'ai_streaming' => $this->aiStreaming,
-        ];
-
-        if ($this->selectedCredentialId && $this->selectedModel) {
-            $data['default_ai_model'] = $this->selectedModel;
-        }
-
-        $tenant->update($data);
+        ]);
 
         session()->flash('message', __('AI configuration saved.'));
     }
@@ -189,11 +201,8 @@ class AiConfigManager extends Component
         }
 
         $credential = LlmCredential::find($this->selectedCredentialId);
-        if (! $credential) {
-            return [];
-        }
 
-        return $credential->provider->models();
+        return $credential ? $credential->provider->models() : [];
     }
 
     public function resetCredentialForm(): void

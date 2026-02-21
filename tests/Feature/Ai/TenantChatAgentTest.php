@@ -7,7 +7,6 @@ use App\Ai\Tools\EscalateToHuman;
 use App\Ai\Tools\SendMedia;
 use App\Models\Channel;
 use App\Models\Conversation;
-use App\Models\Enums\ChannelType;
 use App\Models\Message;
 use App\Models\Tenant;
 
@@ -82,7 +81,7 @@ test('agent loads conversation messages in correct order', function () {
 });
 
 test('agent respects max conversation messages limit', function () {
-    config(['rumibot.ai.max_conversation_messages' => 2]);
+    $this->tenant->update(['ai_context_window' => 2]);
 
     Message::factory()->count(5)->create([
         'conversation_id' => $this->conversation->id,

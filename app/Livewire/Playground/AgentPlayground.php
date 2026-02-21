@@ -69,17 +69,22 @@ class AgentPlayground extends Component
             $tenant = auth()->user()->currentTenant;
             $channel = Channel::findOrFail($this->selectedChannelId);
 
+            $credential = $tenant->defaultLlmCredential;
+            if (! $credential || ! $tenant->default_ai_model) {
+                $this->chatMessages[] = ['role' => 'assistant', 'content' => __('Please configure your AI credentials and model in AI Configuration before testing.')];
+                $this->isLoading = false;
+
+                return;
+            }
+
             $agent = new PlaygroundChatAgent($tenant, $channel, $this->chatMessages);
 
-            $credential = $tenant->defaultLlmCredential;
-            if ($credential) {
-                config()->set("ai.providers.{$credential->provider->value}.key", $credential->api_key);
-            }
+            config()->set("ai.providers.{$credential->provider->value}.key", $credential->api_key);
 
             $response = $agent->prompt(
                 $userMessage,
-                provider: $credential?->provider->value ?? config('rumibot.ai.default_provider'),
-                model: $tenant->default_ai_model ?? config('rumibot.ai.default_model'),
+                provider: $credential->provider->value,
+                model: $tenant->default_ai_model,
             );
 
             $this->chatMessages[] = ['role' => 'assistant', 'content' => (string) $response];
@@ -114,7 +119,7 @@ class AgentPlayground extends Component
     public function getDocumentsProperty(): \Illuminate\Database\Eloquent\Collection
     {
         if (! $this->selectedChannelId) {
-            return collect();
+            return new \Illuminate\Database\Eloquent\Collection;
         }
 
         return KnowledgeDocument::query()

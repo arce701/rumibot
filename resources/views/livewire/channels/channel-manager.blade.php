@@ -23,39 +23,29 @@
 
             <form wire:submit="{{ $editingChannelId ? 'update' : 'create' }}" class="space-y-4">
                 <div class="grid gap-4 md:grid-cols-2">
-                    <flux:input wire:model="name" :label="__('Name')" required />
-                    <flux:input wire:model="slug" :label="__('Slug')" required />
-                </div>
+                    <flux:input wire:model="name" :label="__('Name')" :placeholder="__('e.g., Sales WhatsApp')" required />
 
-                <div class="grid gap-4 md:grid-cols-2">
                     <flux:select wire:model="type" :label="__('Type')">
                         @foreach ($channelTypes as $ct)
                             <flux:select.option :value="$ct->value">{{ $ct->label() }}</flux:select.option>
                         @endforeach
                     </flux:select>
-
-                    <flux:select wire:model="providerType" :label="__('Provider')">
-                        @foreach ($providerTypes as $pt)
-                            <flux:select.option :value="$pt->value">{{ $pt->value }}</flux:select.option>
-                        @endforeach
-                    </flux:select>
                 </div>
 
-                <flux:input wire:model="providerApiKey" :label="__('API Key')" type="password"
-                    :placeholder="$editingChannelId ? __('Leave blank to keep current') : ''" />
+                <div class="grid gap-4 md:grid-cols-2">
+                    <flux:select wire:model="providerType" :label="__('Provider')">
+                        @foreach ($providerTypes as $pt)
+                            <flux:select.option :value="$pt->value">{{ $pt->label() }}</flux:select.option>
+                        @endforeach
+                    </flux:select>
+
+                    <flux:input wire:model="providerApiKey" :label="__('Provider API Key')" type="password"
+                        :placeholder="$editingChannelId ? __('Leave blank to keep current') : ''" />
+                </div>
 
                 <div class="grid gap-4 md:grid-cols-2">
                     <flux:input wire:model="providerPhoneNumberId" :label="__('Phone Number ID')" />
-                    <flux:input wire:model="providerBusinessAccountId" :label="__('Business Account ID')" />
-                </div>
-
-                <flux:input wire:model="providerWebhookVerifyToken" :label="__('Webhook Verify Token')" />
-
-                <flux:textarea wire:model="systemPromptOverride" :label="__('System Prompt Override')" rows="3" />
-
-                <div class="grid gap-4 md:grid-cols-2">
-                    <flux:input wire:model="aiModelOverride" :label="__('AI Model Override')" :placeholder="__('e.g., gpt-4o-mini')" />
-                    <flux:input wire:model="aiTemperature" :label="__('AI Temperature')" type="number" step="0.1" min="0" max="2" />
+                    <flux:input wire:model="providerWebhookVerifyToken" :label="__('Webhook Verify Token')" />
                 </div>
 
                 <flux:switch wire:model="isActive" :label="__('Active')" />
@@ -102,7 +92,7 @@
                                 </flux:badge>
                             </td>
                             <td class="whitespace-nowrap px-6 py-4">
-                                <flux:text>{{ $channel->provider_type->value }}</flux:text>
+                                <flux:text>{{ $channel->provider_type->label() }}</flux:text>
                             </td>
                             <td class="whitespace-nowrap px-6 py-4">
                                 <flux:badge :color="$channel->is_active ? 'green' : 'zinc'">

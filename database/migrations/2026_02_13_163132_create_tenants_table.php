@@ -13,8 +13,12 @@ return new class extends Migration
             $table->string('name', 200);
             $table->string('slug', 100)->unique();
             $table->text('system_prompt')->nullable();
-            $table->string('default_ai_provider', 20)->default('openai');
             $table->string('default_ai_model', 100)->nullable();
+            $table->uuid('default_llm_credential_id')->nullable();
+            $table->decimal('ai_temperature', 3, 2)->default(0.70);
+            $table->unsignedInteger('ai_max_tokens')->default(500);
+            $table->unsignedInteger('ai_context_window')->default(50);
+            $table->boolean('ai_streaming')->default(false);
             $table->string('timezone', 50)->default('America/Lima');
             $table->string('locale', 10)->default('es');
             $table->boolean('is_active')->default(true);

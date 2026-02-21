@@ -30,7 +30,6 @@ class Tenant extends Model
         'name',
         'slug',
         'system_prompt',
-        'default_ai_provider',
         'default_ai_model',
         'default_llm_credential_id',
         'ai_temperature',

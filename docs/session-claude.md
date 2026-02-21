@@ -139,12 +139,84 @@ Registro de todas las sesiones de trabajo. Cargar este archivo al inicio de una 
 
 ---
 
+## Sesion 6 — LLM Credentials, AI Config, Agent Playground, Registration fix, Channel simplification
+
+**Fecha:** 2026-02-21
+
+### Tarea 1: Fix registro de nuevos tenants (403)
+- Nuevo usuario "LIMA FASHION" se registraba pero recibia 403 "No active tenant context"
+- `CreateNewUser` no creaba Tenant, ni pivot, ni seteaba `current_tenant_id`
+- **Solucion:** Reescribir `CreateNewUser` para crear Tenant + User + pivot + role en una transaccion DB
+- Agregado campo "Company name" en el formulario de registro
+- Auto-generacion de slug unico a partir del nombre de empresa
+- Fix del usuario existente LIMA FASHION via tinker
+
+### Tarea 2: Modelo LlmCredential + migracion + enum AiProvider
+- Creado modelo `LlmCredential` con UUID, `api_key` encrypted, `provider` (AiProvider enum), soft deletes
+- Creado enum `AiProvider` con 8 providers (OpenAi, Anthropic, Gemini, Groq, DeepSeek, Mistral, XAi, OpenRouter)
+- Cada provider tiene metodo `models(): array` con lista estatica de modelos disponibles
+- Migracion: columnas AI en tenants (`default_llm_credential_id`, `default_ai_model`, `ai_temperature`, `ai_max_tokens`, `ai_context_window`, `ai_streaming`)
+
+### Tarea 3: Pagina AI Configuration (AiConfigManager)
+- CRUD de credenciales LLM por tenant
+- Configuracion de modelo: seleccionar credencial, elegir modelo (lista dinamica segun provider), ajustar temperature/tokens/context
+- Permisos: `ai-config.view`, `ai-config.update` (owner y admin, no member)
+- Primera credencial se marca como default automaticamente
+
+### Tarea 4: Agent Playground
+- Componente `AgentPlayground` con chat in-memory (no persistido)
+- Usa `PlaygroundChatAgent` (solo SimilaritySearch, sin side effects)
+- Selector de canal, muestra documentos y herramientas disponibles
+- Requiere credencial LLM configurada para funcionar
+
+### Tarea 5: Eliminacion total de env defaults para LLM
+- Eliminado `default_provider`, `default_model`, `fallback_providers`, `temperature`, `max_tokens`, `max_conversation_messages` de `config/rumibot.php`
+- Solo queda `ai.timeout` en la config
+- `ProcessIncomingMessage` retorna early con log warning si no hay credencial
+- `AgentPlayground` muestra mensaje amigable si no hay credencial
+
+### Tarea 6: Simplificacion del formulario de canales
+- Eliminados campos: slug (auto-generado), `provider_business_account_id`, `system_prompt_override` (esta en Prompts), `ai_model_override` (esta en AI Config), `ai_temperature` (esta en AI Config)
+- Formulario simplificado: Nombre, Tipo, Provider, API Key, Phone Number ID, Webhook Token, Activo
+
+### Tarea 7: Limpieza de base de datos
+- Eliminadas columnas sin usar: `tenants.default_ai_provider`, `channels.provider_business_account_id`, `channels.ai_temperature`, `llm_credentials.is_default`
+- Consolidacion de migraciones: editados archivos `create_*` directamente, eliminada migracion `add_ai_settings_to_tenants_table`
+- Ejecutado `migrate:fresh --seed`
+
+### Tarea 8: Sidebar reorganizado
+Nuevo orden logico siguiendo el flujo de trabajo:
+Dashboard → Channels → AI Configuration → Prompts → Knowledge Base → Agent Playground → Conversations → Leads → Escalations → Integrations → Team → Billing → Activity Log
+
+### Tarea 9: Actualizacion de documentacion
+- Actualizado `architecture-map.md` con todos los cambios
+- Actualizado `session-claude.md` con Sesion 6
+- Actualizado `uso.md` con flujo actualizado
+
+**Archivos modificados (30+):**
+- Modelos: Tenant, Channel, LlmCredential (nuevo)
+- Livewire: AiConfigManager (nuevo), AgentPlayground (nuevo), ChannelManager
+- Agentes: PlaygroundChatAgent (nuevo), TenantChatAgent
+- Jobs: ProcessIncomingMessage
+- Auth: CreateNewUser, register.blade.php
+- Config: rumibot.php
+- Migraciones: 3 editadas, 1 eliminada, 1 nueva
+- Factories: 3 actualizadas, 1 nueva
+- Seeders: DatabaseSeeder, RolesAndPermissionsSeeder
+- Tests: 6 actualizados, 4 nuevos
+- Vistas: sidebar, ai-config (nueva), playground (nueva), channel-manager
+
+**Resultado:** 362 tests pasando, 1 skipped (preexistente)
+
+---
+
 ## Estado actual del proyecto
 
-**Tests:** 323 pasando
+**Tests:** 362 pasando, 1 skipped
 **Branch:** main
 **Super admin:** rumibot8@gmail.com / Rumi2026$
 **Plan:** Rumibot (unico) en USD — $30/trim, $55/sem, $110/anual
-**Fases completadas:** 0-9 (todas)
+**Fases completadas:** 0-9 (todas) + post-fase (LLM credentials, AI config, playground, registration fix)
+**Modelos:** 17 (12 tenant-scoped) | **Enums:** 13 | **Livewire:** 22 | **Migraciones:** 27
 **Docs:** `architecture-map.md` (referencia tecnica), `session-claude.md` (log de sesiones), `uso.md` (quickstart)
-**Pendiente:** Deployment, dominio produccion, configuracion real de YCloud/MercadoPago/AI providers
+**Pendiente:** Deployment, dominio produccion, configuracion real de YCloud/MercadoPago/AI providers, streaming AI, analytics dashboard

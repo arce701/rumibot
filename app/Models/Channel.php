@@ -26,11 +26,9 @@ class Channel extends Model
         'provider_type',
         'provider_api_key',
         'provider_phone_number_id',
-        'provider_business_account_id',
         'provider_webhook_verify_token',
         'system_prompt_override',
         'ai_model_override',
-        'ai_temperature',
         'is_active',
         'settings',
     ];
@@ -41,7 +39,6 @@ class Channel extends Model
             'type' => ChannelType::class,
             'provider_type' => WhatsAppProviderType::class,
             'provider_api_key' => 'encrypted',
-            'ai_temperature' => 'decimal:2',
             'is_active' => 'boolean',
             'settings' => 'array',
         ];

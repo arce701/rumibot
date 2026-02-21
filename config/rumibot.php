@@ -9,12 +9,6 @@ return [
     */
 
     'ai' => [
-        'default_provider' => env('RUMIBOT_DEFAULT_AI_PROVIDER', 'openai'),
-        'default_model' => env('RUMIBOT_DEFAULT_AI_MODEL', 'gpt-4o-mini'),
-        'fallback_providers' => ['openai', 'anthropic'],
-        'temperature' => 0.7,
-        'max_tokens' => 500,
-        'max_conversation_messages' => 50,
         'timeout' => 120,
     ],
 

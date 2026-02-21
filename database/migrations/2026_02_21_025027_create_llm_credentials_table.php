@@ -14,17 +14,25 @@ return new class extends Migration
             $table->string('name', 100);
             $table->string('provider', 30);
             $table->text('api_key');
-            $table->boolean('is_default')->default(false);
             $table->jsonb('metadata')->nullable();
             $table->timestamps();
             $table->softDeletes();
+        });
 
-            $table->index(['tenant_id', 'is_default']);
+        Schema::table('tenants', function (Blueprint $table) {
+            $table->foreign('default_llm_credential_id')
+                ->references('id')
+                ->on('llm_credentials')
+                ->nullOnDelete();
         });
     }
 
     public function down(): void
     {
+        Schema::table('tenants', function (Blueprint $table) {
+            $table->dropForeign(['default_llm_credential_id']);
+        });
+
         Schema::dropIfExists('llm_credentials');
     }
 };

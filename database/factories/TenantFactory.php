@@ -18,8 +18,6 @@ class TenantFactory extends Factory
             'name' => $name,
             'slug' => Str::slug($name),
             'system_prompt' => fake()->paragraph(),
-            'default_ai_provider' => 'openai',
-            'default_ai_model' => 'gpt-4o-mini',
             'timezone' => 'America/Lima',
             'locale' => 'es',
             'is_active' => true,

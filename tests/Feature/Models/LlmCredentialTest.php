@@ -78,14 +78,6 @@ test('llm credential is scoped by tenant', function () {
     expect(LlmCredential::count())->toBe(1);
 });
 
-test('llm credential factory default state sets is_default to true', function () {
-    $credential = LlmCredential::factory()->default()->create([
-        'tenant_id' => $this->tenant->id,
-    ]);
-
-    expect($credential->is_default)->toBeTrue();
-});
-
 test('tenant has many llm credentials', function () {
     LlmCredential::factory()->count(3)->create(['tenant_id' => $this->tenant->id]);
 

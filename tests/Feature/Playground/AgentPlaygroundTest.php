@@ -5,6 +5,7 @@ use App\Livewire\Playground\AgentPlayground;
 use App\Models\Channel;
 use App\Models\Enums\DocumentStatus;
 use App\Models\KnowledgeDocument;
+use App\Models\LlmCredential;
 use App\Models\Tenant;
 use App\Models\User;
 use Livewire\Livewire;
@@ -13,7 +14,17 @@ use Spatie\Permission\PermissionRegistrar;
 beforeEach(function () {
     $this->seed(\Database\Seeders\RolesAndPermissionsSeeder::class);
 
-    $this->tenant = Tenant::factory()->create();
+    $this->tenant = Tenant::factory()->create([
+        'default_ai_model' => 'gpt-4o-mini',
+    ]);
+
+    $credential = LlmCredential::factory()->create([
+        'tenant_id' => $this->tenant->id,
+        'provider' => 'openai',
+        'api_key' => 'test-key',
+    ]);
+    $this->tenant->update(['default_llm_credential_id' => $credential->id]);
+
     $this->channel = Channel::factory()->sales()->create(['tenant_id' => $this->tenant->id]);
 
     $this->owner = User::factory()->create(['current_tenant_id' => $this->tenant->id]);

@@ -89,13 +89,18 @@ test('deleting default credential clears tenant reference', function () {
         'tenant_id' => $this->tenant->id,
     ]);
 
-    $this->tenant->update(['default_llm_credential_id' => $credential->id]);
+    $this->tenant->update([
+        'default_llm_credential_id' => $credential->id,
+        'default_ai_model' => 'gpt-4o',
+    ]);
 
     Livewire::actingAs($this->owner)
         ->test(AiConfigManager::class)
         ->call('deleteCredential', $credential->id);
 
-    expect($this->tenant->fresh()->default_llm_credential_id)->toBeNull();
+    $this->tenant->refresh();
+    expect($this->tenant->default_llm_credential_id)->toBeNull();
+    expect($this->tenant->default_ai_model)->toBeNull();
 });
 
 test('owner can set default credential', function () {
@@ -138,11 +143,13 @@ test('owner can save model settings', function () {
 test('model settings validation rejects invalid values', function () {
     Livewire::actingAs($this->owner)
         ->test(AiConfigManager::class)
+        ->set('selectedCredentialId', null)
+        ->set('selectedModel', null)
         ->set('aiTemperature', 3.0)
         ->set('aiMaxTokens', 50)
         ->set('aiContextWindow', 0)
         ->call('saveModelSettings')
-        ->assertHasErrors(['aiTemperature', 'aiMaxTokens', 'aiContextWindow']);
+        ->assertHasErrors(['selectedCredentialId', 'selectedModel', 'aiTemperature', 'aiMaxTokens', 'aiContextWindow']);
 });
 
 test('credential creation validation requires all fields', function () {
