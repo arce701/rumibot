@@ -4,6 +4,28 @@
 
 ---
 
+## Mission
+
+**EN:** Empower Latin American businesses to automate their WhatsApp sales and customer support through AI-powered chatbots — enabling them to capture more leads, resolve customer issues instantly, and scale their communication without growing their team. Each business brings its own AI provider and knowledge base, keeping full control over costs and data.
+
+**ES:** Empoderar a las empresas latinoamericanas para automatizar sus ventas y atención al cliente por WhatsApp mediante chatbots impulsados por inteligencia artificial — permitiéndoles capturar más prospectos, resolver consultas al instante y escalar su comunicación sin necesidad de ampliar su equipo. Cada empresa trae su propio proveedor de IA y base de conocimiento, manteniendo control total sobre costos y datos.
+
+### Core Objectives
+
+**1. Sales Prospecting / Prospección comercial**
+
+**EN:** Automate lead generation through an AI-powered sales agent on WhatsApp. The bot answers product questions, shares catalogs and media, identifies purchase intent, captures prospect data, and escalates high-value leads to human sales representatives — turning every conversation into a potential sale.
+
+**ES:** Automatizar la generación de prospectos mediante un agente de ventas con IA en WhatsApp. El bot responde consultas sobre productos, comparte catálogos y material multimedia, identifica intención de compra, captura datos de contacto y escala los prospectos de alto valor a representantes de ventas humanos — convirtiendo cada conversación en una oportunidad de venta.
+
+**2. Technical Support / Soporte técnico**
+
+**EN:** Provide instant, 24/7 technical support for products and services that require post-sale assistance. The bot guides customers step by step through troubleshooting, shares instructional media, resolves frequently asked questions, and escalates complex issues to human support agents — reducing response times and improving customer satisfaction.
+
+**ES:** Brindar soporte técnico inmediato y disponible 24/7 para productos y servicios que requieren asistencia postventa. El bot guía a los clientes paso a paso en la resolución de problemas, comparte material instructivo, resuelve preguntas frecuentes y escala los casos complejos a agentes de soporte humanos — reduciendo tiempos de respuesta y mejorando la satisfacción del cliente.
+
+---
+
 ## What Is Rumibot?
 
 A **multi-tenant SaaS** platform where Latin American businesses configure AI chatbots for WhatsApp. Each tenant (business) uploads their company info, configures Sales and Support WhatsApp channels, and the AI bot handles prospects and customers automatically.
