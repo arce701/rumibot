@@ -3,7 +3,6 @@
 namespace Database\Factories;
 
 use App\Models\Enums\ChannelType;
-use App\Models\Enums\WhatsAppProviderType;
 use App\Models\Tenant;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
@@ -22,10 +21,8 @@ class ChannelFactory extends Factory
             'name' => $name,
             'slug' => Str::slug($name),
             'type' => ChannelType::Sales,
-            'provider_type' => WhatsAppProviderType::YCloud,
             'provider_api_key' => fake()->sha256(),
             'provider_phone_number_id' => fake()->numerify('##########'),
-            'provider_webhook_verify_token' => Str::random(32),
             'system_prompt_override' => null,
             'ai_model_override' => null,
             'is_active' => true,

@@ -2,10 +2,9 @@
 
 namespace App\Jobs;
 
-use App\Models\Channel;
 use App\Models\Conversation;
 use App\Models\Message;
-use App\Services\WhatsApp\YCloudProvider;
+use App\Services\WhatsApp\WhatsAppWebhookHandler;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Context;
@@ -31,7 +30,8 @@ class SendWhatsAppMessage implements ShouldQueue
         Context::add('tenant_id', $this->conversation->tenant_id);
 
         $channel = $this->conversation->channel;
-        $provider = new YCloudProvider($channel->provider_api_key);
+        $handler = app(WhatsAppWebhookHandler::class);
+        $provider = $handler->resolveProvider($channel);
 
         $response = $provider->sendText(
             from: $channel->provider_phone_number_id,
@@ -47,7 +47,7 @@ class SendWhatsAppMessage implements ShouldQueue
                 'content' => $this->text,
                 'metadata' => [
                     'whatsapp_message_id' => $response->messageId,
-                    'provider' => 'ycloud',
+                    'provider' => 'meta_cloud',
                 ],
             ]);
 

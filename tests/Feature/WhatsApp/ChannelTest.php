@@ -4,7 +4,6 @@ use App\Models\Channel;
 use App\Models\Conversation;
 use App\Models\Enums\ChannelType;
 use App\Models\Enums\ConversationStatus;
-use App\Models\Enums\WhatsAppProviderType;
 use App\Models\Message;
 use App\Models\Tenant;
 use App\Services\Tenant\TenantContext;
@@ -32,12 +31,6 @@ test('channel casts type to enum', function () {
     $channel = Channel::factory()->sales()->create(['tenant_id' => $this->tenant->id]);
 
     expect($channel->type)->toBe(ChannelType::Sales);
-});
-
-test('channel casts provider_type to enum', function () {
-    $channel = Channel::factory()->create(['tenant_id' => $this->tenant->id]);
-
-    expect($channel->provider_type)->toBe(WhatsAppProviderType::YCloud);
 });
 
 test('channel encrypts provider_api_key', function () {

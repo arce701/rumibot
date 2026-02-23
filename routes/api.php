@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/health', fn () => response()->json(['status' => 'ok']));
 
-Route::prefix('webhooks/whatsapp/{tenantUuid}/{channelSlug}')
+Route::prefix('webhooks/whatsapp/{tenantUuid}')
     ->middleware('throttle:webhook-whatsapp')
     ->group(function () {
         Route::get('/', [WhatsAppWebhookController::class, 'verify'])

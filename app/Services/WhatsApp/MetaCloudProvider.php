@@ -7,18 +7,17 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
-class YCloudProvider implements WhatsAppProvider
+class MetaCloudProvider implements WhatsAppProvider
 {
-    private const BASE_URL = 'https://api.ycloud.com/v2';
-
     public function __construct(
-        private string $apiKey,
+        private string $accessToken,
+        private string $phoneNumberId,
     ) {}
 
     public function sendText(string $from, string $to, string $text): MessageResponse
     {
         return $this->sendMessage([
-            'from' => $from,
+            'messaging_product' => 'whatsapp',
             'to' => $to,
             'type' => 'text',
             'text' => [
@@ -29,23 +28,21 @@ class YCloudProvider implements WhatsAppProvider
 
     public function sendImage(string $from, string $to, string $url, ?string $caption = null): MessageResponse
     {
-        $payload = [
-            'from' => $from,
+        return $this->sendMessage([
+            'messaging_product' => 'whatsapp',
             'to' => $to,
             'type' => 'image',
             'image' => array_filter([
                 'link' => $url,
                 'caption' => $caption,
             ]),
-        ];
-
-        return $this->sendMessage($payload);
+        ]);
     }
 
     public function sendDocument(string $from, string $to, string $url, string $filename, ?string $caption = null): MessageResponse
     {
-        $payload = [
-            'from' => $from,
+        return $this->sendMessage([
+            'messaging_product' => 'whatsapp',
             'to' => $to,
             'type' => 'document',
             'document' => array_filter([
@@ -53,9 +50,7 @@ class YCloudProvider implements WhatsAppProvider
                 'filename' => $filename,
                 'caption' => $caption,
             ]),
-        ];
-
-        return $this->sendMessage($payload);
+        ]);
     }
 
     public function sendInteractive(string $from, string $to, string $body, array $buttons): MessageResponse
@@ -69,7 +64,7 @@ class YCloudProvider implements WhatsAppProvider
         ])->values()->all();
 
         return $this->sendMessage([
-            'from' => $from,
+            'messaging_product' => 'whatsapp',
             'to' => $to,
             'type' => 'interactive',
             'interactive' => [
@@ -82,7 +77,9 @@ class YCloudProvider implements WhatsAppProvider
 
     public function parseInboundMessage(array $payload): InboundMessage
     {
-        $message = $payload['whatsappInboundMessage'] ?? [];
+        $value = $payload['entry'][0]['changes'][0]['value'] ?? [];
+        $message = $value['messages'][0] ?? [];
+        $contact = $value['contacts'][0] ?? [];
 
         $content = match ($message['type'] ?? 'text') {
             'text' => $message['text']['body'] ?? '',
@@ -102,14 +99,18 @@ class YCloudProvider implements WhatsAppProvider
             $media = $message[$type] ?? null;
         }
 
+        $timestamp = isset($message['timestamp'])
+            ? date('c', (int) $message['timestamp'])
+            : null;
+
         return new InboundMessage(
             messageId: $message['id'] ?? '',
             from: $message['from'] ?? '',
-            to: $message['to'] ?? '',
+            to: $value['metadata']['display_phone_number'] ?? '',
             type: $type,
             content: $content,
-            contactName: $message['customerProfile']['name'] ?? null,
-            timestamp: $message['sendTime'] ?? null,
+            contactName: $contact['profile']['name'] ?? null,
+            timestamp: $timestamp,
             media: $media,
             context: $message['context'] ?? null,
             rawPayload: $payload,
@@ -120,26 +121,26 @@ class YCloudProvider implements WhatsAppProvider
     {
         try {
             $response = $this->httpClient()
-                ->post('/whatsapp/messages/sendDirectly', $payload);
+                ->post("/{$this->phoneNumberId}/messages", $payload);
 
             if ($response->successful()) {
                 return MessageResponse::success(
-                    messageId: $response->json('id', ''),
+                    messageId: $response->json('messages.0.id', ''),
                     rawResponse: $response->json(),
                 );
             }
 
-            Log::warning('YCloud message send failed', [
+            Log::warning('Meta Cloud API message send failed', [
                 'status' => $response->status(),
                 'body' => $response->json(),
             ]);
 
             return MessageResponse::failure(
-                error: $response->json('message', 'Unknown error'),
+                error: $response->json('error.message', 'Unknown error'),
                 rawResponse: $response->json(),
             );
         } catch (\Exception $e) {
-            Log::error('YCloud API exception', ['error' => $e->getMessage()]);
+            Log::error('Meta Cloud API exception', ['error' => $e->getMessage()]);
 
             return MessageResponse::failure(error: $e->getMessage());
         }
@@ -147,8 +148,8 @@ class YCloudProvider implements WhatsAppProvider
 
     private function httpClient(): PendingRequest
     {
-        return Http::baseUrl(self::BASE_URL)
-            ->withHeaders(['X-API-Key' => $this->apiKey])
+        return Http::baseUrl('https://graph.facebook.com/'.config('rumibot.whatsapp.api_version'))
+            ->withToken($this->accessToken)
             ->acceptJson()
             ->timeout(15)
             ->retry(2, 100, throw: false);

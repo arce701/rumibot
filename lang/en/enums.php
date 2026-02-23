@@ -55,10 +55,6 @@ return [
         'stripe' => 'Stripe',
         'manual' => 'Manual',
     ],
-    'whatsapp_provider' => [
-        'ycloud' => 'YCloud',
-        'meta_cloud' => 'Meta Cloud',
-    ],
     'ai_provider' => [
         'openai' => 'OpenAI',
         'anthropic' => 'Anthropic',

@@ -41,7 +41,7 @@ PROMPT,
     */
 
     'whatsapp' => [
-        'default_provider' => env('RUMIBOT_WHATSAPP_PROVIDER', 'ycloud'),
+        'api_version' => env('RUMIBOT_WHATSAPP_API_VERSION', 'v21.0'),
     ],
 
     /*

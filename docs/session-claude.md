@@ -12,7 +12,7 @@ Registro de todas las sesiones de trabajo. Cargar este archivo al inicio de una 
 
 **Fases completadas:**
 - **Fase 0:** Scaffolding — Laravel 12, multi-tenancy (`BelongsToTenant` + `TenantScope`), roles/permisos con Spatie
-- **Fase 1:** WhatsApp — Integracion YCloud, webhooks, verificacion HMAC, modelo `Channel`
+- **Fase 1:** WhatsApp — Integracion WhatsApp (Meta Cloud API), webhooks, verificacion HMAC, modelo `Channel`
 - **Fase 2:** AI Agent — Pipeline conversacional con OpenAI/Anthropic/Gemini, system prompts configurables
 - **Fase 3:** RAG — Knowledge base con embeddings, `ProcessDocument` job, busqueda semantica
 - **Fase 4:** Leads — Extraccion automatica de datos de contacto, scoring, modelo `Lead`
@@ -36,7 +36,7 @@ Registro de todas las sesiones de trabajo. Cargar este archivo al inicio de una 
 - Encriptacion de `TenantIntegration.secret` con cast `encrypted`
 - Logging por tenant con `SetLogContext` middleware + `Context::add()` en jobs
 - Retry/backoff en `ProcessIncomingMessage` (3 intentos, backoff exponencial)
-- HTTP retry en `YCloudProvider`
+- HTTP retry en `MetaCloudProvider`
 - Backups automaticos a S3 con `spatie/laravel-backup`
 - Exportaciones Excel/CSV con `maatwebsite/excel` (Leads + Conversations)
 - Laravel Pulse dashboard restringido a super-admins
@@ -210,13 +210,42 @@ Dashboard → Channels → AI Configuration → Prompts → Knowledge Base → A
 
 ---
 
+## Sesion 7 — Limpieza post-refactorizacion YCloud → Meta Cloud API
+
+**Fecha:** 2026-02-23
+
+**Resumen:** Eliminacion de peso muerto tras la migracion de YCloud a Meta Cloud API directo.
+
+**Cambios implementados:**
+- Eliminadas columnas muertas `provider_type` y `provider_webhook_verify_token` de la migracion `create_channels_table`
+- Consolidado partial unique index `channels_tenant_phone_unique` en la migracion original
+- Eliminada migracion transitional `update_channels_default_provider_to_meta_cloud`
+- Eliminada referencia a `provider_type` en ChannelFactory y tests
+- Actualizada documentacion: `uso.md`, `architecture-map.md`, `README.md`, `session-claude.md` — todas las referencias a YCloud reemplazadas por Meta Cloud API
+- Eliminada entrada completada "WhatsApp BSP migration" del roadmap
+
+**Archivos modificados (9):**
+| Accion | Archivo |
+|--------|---------|
+| EDIT | `database/migrations/2026_02_13_164521_create_channels_table.php` |
+| DELETE | `database/migrations/2026_02_23_044334_update_channels_default_provider_to_meta_cloud.php` |
+| EDIT | `database/factories/ChannelFactory.php` |
+| EDIT | `tests/Feature/WhatsApp/ChannelTest.php` |
+| EDIT | `tests/Feature/Panel/TenantPanelCrudTest.php` |
+| EDIT | `docs/uso.md` |
+| EDIT | `docs/architecture-map.md` |
+| EDIT | `docs/session-claude.md` |
+| EDIT | `README.md` |
+
+---
+
 ## Estado actual del proyecto
 
-**Tests:** 362 pasando, 1 skipped
+**Tests:** 361 pasando, 1 skipped
 **Branch:** main
 **Super admin:** rumibot8@gmail.com / Rumi2026$
 **Plan:** Rumibot (unico) en USD — $30/trim, $55/sem, $110/anual
-**Fases completadas:** 0-9 (todas) + post-fase (LLM credentials, AI config, playground, registration fix)
-**Modelos:** 17 (12 tenant-scoped) | **Enums:** 13 | **Livewire:** 22 | **Migraciones:** 27
-**Docs:** `architecture-map.md` (referencia tecnica), `session-claude.md` (log de sesiones), `uso.md` (quickstart)
-**Pendiente:** Deployment, dominio produccion, configuracion real de YCloud/MercadoPago/AI providers, streaming AI, analytics dashboard
+**Fases completadas:** 0-9 (todas) + post-fase (LLM credentials, AI config, playground, registration fix, Meta Cloud API migration)
+**Modelos:** 17 (12 tenant-scoped) | **Enums:** 12 | **Livewire:** 22 | **Migraciones:** 27
+**Docs:** `architecture-map.md` (referencia tecnica), `session-claude.md` (log de sesiones), `user-manual.md` (manual de usuario)
+**Pendiente:** Deployment, dominio produccion, configuracion real de Meta Cloud API/MercadoPago/AI providers, streaming AI, analytics dashboard

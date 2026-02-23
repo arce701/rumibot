@@ -11,7 +11,7 @@ use App\Models\Message;
 use App\Models\Tenant;
 use App\Services\WhatsApp\InboundMessage;
 use App\Services\WhatsApp\MessageResponse;
-use App\Services\WhatsApp\YCloudProvider;
+use App\Services\WhatsApp\MetaCloudProvider;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
@@ -30,8 +30,8 @@ beforeEach(function () {
 
     $this->channel = Channel::factory()->create([
         'tenant_id' => $this->tenant->id,
-        'provider_api_key' => 'test-api-key',
-        'provider_phone_number_id' => '+51912345678',
+        'provider_api_key' => 'test-access-token',
+        'provider_phone_number_id' => '123456789',
     ]);
 });
 
@@ -159,9 +159,9 @@ test('process incoming message stores media metadata', function () {
 
 test('send whatsapp message stores assistant message on success', function () {
     Http::fake([
-        'api.ycloud.com/v2/whatsapp/messages/sendDirectly' => Http::response([
-            'id' => 'ycloud-msg-001',
-            'status' => 'accepted',
+        'graph.facebook.com/v21.0/123456789/messages' => Http::response([
+            'messaging_product' => 'whatsapp',
+            'messages' => [['id' => 'wamid.meta-msg-001']],
         ], 200),
     ]);
 
@@ -181,8 +181,8 @@ test('send whatsapp message stores assistant message on success', function () {
 
     expect($message)->not->toBeNull();
     expect($message->content)->toBe('Hola, gracias por contactarnos');
-    expect($message->metadata['whatsapp_message_id'])->toBe('ycloud-msg-001');
-    expect($message->metadata['provider'])->toBe('ycloud');
+    expect($message->metadata['whatsapp_message_id'])->toBe('wamid.meta-msg-001');
+    expect($message->metadata['provider'])->toBe('meta_cloud');
 
     $conversation->refresh();
     expect($conversation->messages_count)->toBe(2);
@@ -191,8 +191,8 @@ test('send whatsapp message stores assistant message on success', function () {
 
 test('send whatsapp message fails gracefully on api error', function () {
     Http::fake([
-        'api.ycloud.com/v2/whatsapp/messages/sendDirectly' => Http::response([
-            'message' => 'Invalid phone number',
+        'graph.facebook.com/v21.0/123456789/messages' => Http::response([
+            'error' => ['message' => 'Invalid phone number'],
         ], 400),
     ]);
 
@@ -202,7 +202,7 @@ test('send whatsapp message fails gracefully on api error', function () {
         'contact_phone' => '+51999888777',
     ]);
 
-    Log::shouldReceive('warning')->once(); // YCloudProvider logs warning on failure
+    Log::shouldReceive('warning')->once(); // MetaCloudProvider logs warning on failure
     Log::shouldReceive('error')
         ->once()
         ->withArgs(function ($message, $context) {
@@ -223,53 +223,55 @@ test('send whatsapp message fails gracefully on api error', function () {
         ->count())->toBe(0);
 });
 
-// --- YCloudProvider ---
+// --- MetaCloudProvider ---
 
-test('ycloud provider sends text message successfully', function () {
+test('meta cloud provider sends text message successfully', function () {
     Http::fake([
-        'api.ycloud.com/v2/whatsapp/messages/sendDirectly' => Http::response([
-            'id' => 'msg-success-001',
+        'graph.facebook.com/v21.0/123456789/messages' => Http::response([
+            'messaging_product' => 'whatsapp',
+            'messages' => [['id' => 'wamid.msg-success-001']],
         ], 200),
     ]);
 
-    $provider = new YCloudProvider('test-api-key');
+    $provider = new MetaCloudProvider('test-access-token', '123456789');
     $response = $provider->sendText('+51912345678', '+51999888777', 'Hello World');
 
     expect($response->success)->toBeTrue();
-    expect($response->messageId)->toBe('msg-success-001');
+    expect($response->messageId)->toBe('wamid.msg-success-001');
 
     Http::assertSent(function ($request) {
-        return $request->url() === 'https://api.ycloud.com/v2/whatsapp/messages/sendDirectly'
-            && $request->header('X-API-Key')[0] === 'test-api-key'
-            && $request['from'] === '+51912345678'
+        return str_contains($request->url(), 'graph.facebook.com/v21.0/123456789/messages')
+            && $request->hasHeader('Authorization', 'Bearer test-access-token')
+            && $request['messaging_product'] === 'whatsapp'
             && $request['to'] === '+51999888777'
             && $request['type'] === 'text'
             && $request['text']['body'] === 'Hello World';
     });
 });
 
-test('ycloud provider returns failure on api error', function () {
+test('meta cloud provider returns failure on api error', function () {
     Http::fake([
-        'api.ycloud.com/v2/whatsapp/messages/sendDirectly' => Http::response([
-            'message' => 'Rate limit exceeded',
+        'graph.facebook.com/v21.0/123456789/messages' => Http::response([
+            'error' => ['message' => 'Rate limit exceeded'],
         ], 429),
     ]);
 
-    $provider = new YCloudProvider('test-api-key');
+    $provider = new MetaCloudProvider('test-access-token', '123456789');
     $response = $provider->sendText('+51912345678', '+51999888777', 'Hello');
 
     expect($response->success)->toBeFalse();
     expect($response->error)->toBe('Rate limit exceeded');
 });
 
-test('ycloud provider sends interactive button message', function () {
+test('meta cloud provider sends interactive button message', function () {
     Http::fake([
-        'api.ycloud.com/v2/whatsapp/messages/sendDirectly' => Http::response([
-            'id' => 'msg-interactive-001',
+        'graph.facebook.com/v21.0/123456789/messages' => Http::response([
+            'messaging_product' => 'whatsapp',
+            'messages' => [['id' => 'wamid.msg-interactive-001']],
         ], 200),
     ]);
 
-    $provider = new YCloudProvider('test-api-key');
+    $provider = new MetaCloudProvider('test-access-token', '123456789');
     $response = $provider->sendInteractive(
         '+51912345678',
         '+51999888777',
@@ -283,27 +285,43 @@ test('ycloud provider sends interactive button message', function () {
     expect($response->success)->toBeTrue();
 
     Http::assertSent(function ($request) {
-        return $request['type'] === 'interactive'
+        return $request['messaging_product'] === 'whatsapp'
+            && $request['type'] === 'interactive'
             && $request['interactive']['type'] === 'button'
             && $request['interactive']['body']['text'] === '¿Cómo puedo ayudarte?'
             && count($request['interactive']['action']['buttons']) === 2;
     });
 });
 
-test('ycloud provider parses text inbound message', function () {
-    $provider = new YCloudProvider('test-api-key');
+test('meta cloud provider parses text inbound message', function () {
+    $provider = new MetaCloudProvider('test-access-token', '123456789');
 
     $payload = [
-        'type' => 'whatsapp.inbound_message.received',
-        'whatsappInboundMessage' => [
-            'id' => 'wamid.parse-test',
-            'from' => '+51999000111',
-            'to' => '+51912345678',
-            'type' => 'text',
-            'text' => ['body' => 'Test message content'],
-            'customerProfile' => ['name' => 'Test User'],
-            'sendTime' => '2026-02-13T12:00:00Z',
-        ],
+        'object' => 'whatsapp_business_account',
+        'entry' => [[
+            'id' => '123',
+            'changes' => [[
+                'field' => 'messages',
+                'value' => [
+                    'messaging_product' => 'whatsapp',
+                    'metadata' => [
+                        'display_phone_number' => '+51912345678',
+                        'phone_number_id' => '123456789',
+                    ],
+                    'contacts' => [[
+                        'profile' => ['name' => 'Test User'],
+                        'wa_id' => '+51999000111',
+                    ]],
+                    'messages' => [[
+                        'id' => 'wamid.parse-test',
+                        'from' => '+51999000111',
+                        'timestamp' => '1708858200',
+                        'type' => 'text',
+                        'text' => ['body' => 'Test message content'],
+                    ]],
+                ],
+            ]],
+        ]],
     ];
 
     $message = $provider->parseInboundMessage($payload);
@@ -319,23 +337,37 @@ test('ycloud provider parses text inbound message', function () {
     expect($message->isMedia())->toBeFalse();
 });
 
-test('ycloud provider parses interactive button reply', function () {
-    $provider = new YCloudProvider('test-api-key');
+test('meta cloud provider parses interactive button reply', function () {
+    $provider = new MetaCloudProvider('test-access-token', '123456789');
 
     $payload = [
-        'type' => 'whatsapp.inbound_message.received',
-        'whatsappInboundMessage' => [
-            'id' => 'wamid.interactive',
-            'from' => '+51999000111',
-            'to' => '+51912345678',
-            'type' => 'interactive',
-            'interactive' => [
-                'button_reply' => [
-                    'id' => 'btn_ventas',
-                    'title' => 'Ventas',
+        'object' => 'whatsapp_business_account',
+        'entry' => [[
+            'id' => '123',
+            'changes' => [[
+                'field' => 'messages',
+                'value' => [
+                    'messaging_product' => 'whatsapp',
+                    'metadata' => [
+                        'display_phone_number' => '+51912345678',
+                        'phone_number_id' => '123456789',
+                    ],
+                    'contacts' => [['profile' => ['name' => 'User']]],
+                    'messages' => [[
+                        'id' => 'wamid.interactive',
+                        'from' => '+51999000111',
+                        'timestamp' => '1708858200',
+                        'type' => 'interactive',
+                        'interactive' => [
+                            'button_reply' => [
+                                'id' => 'btn_ventas',
+                                'title' => 'Ventas',
+                            ],
+                        ],
+                    ]],
                 ],
-            ],
-        ],
+            ]],
+        ]],
     ];
 
     $message = $provider->parseInboundMessage($payload);

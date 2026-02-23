@@ -8,7 +8,7 @@ use App\Services\WhatsApp\Contracts\WhatsAppProvider;
 
 class WhatsAppWebhookHandler
 {
-    public function resolveChannel(string $tenantUuid, string $channelSlug): ?Channel
+    public function resolveChannelByPhoneNumberId(string $tenantUuid, string $phoneNumberId): ?Channel
     {
         $tenant = Tenant::withoutGlobalScopes()->where('id', $tenantUuid)->where('is_active', true)->first();
 
@@ -18,9 +18,14 @@ class WhatsAppWebhookHandler
 
         return Channel::withoutGlobalScopes()
             ->where('tenant_id', $tenant->id)
-            ->where('slug', $channelSlug)
+            ->where('provider_phone_number_id', $phoneNumberId)
             ->where('is_active', true)
             ->first();
+    }
+
+    public function extractPhoneNumberId(array $payload): ?string
+    {
+        return $payload['entry'][0]['changes'][0]['value']['metadata']['phone_number_id'] ?? null;
     }
 
     public function parseInboundMessage(Channel $channel, array $payload): InboundMessage
@@ -32,11 +37,18 @@ class WhatsAppWebhookHandler
 
     public function isInboundMessageEvent(array $payload): bool
     {
-        return ($payload['type'] ?? '') === 'whatsapp.inbound_message.received';
+        if (($payload['object'] ?? '') !== 'whatsapp_business_account') {
+            return false;
+        }
+
+        $change = $payload['entry'][0]['changes'][0] ?? [];
+
+        return ($change['field'] ?? '') === 'messages'
+            && ! empty($change['value']['messages']);
     }
 
-    private function resolveProvider(Channel $channel): WhatsAppProvider
+    public function resolveProvider(Channel $channel): WhatsAppProvider
     {
-        return new YCloudProvider($channel->provider_api_key);
+        return new MetaCloudProvider($channel->provider_api_key, $channel->provider_phone_number_id);
     }
 }

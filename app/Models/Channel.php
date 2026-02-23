@@ -4,7 +4,6 @@ namespace App\Models;
 
 use App\Models\Concerns\BelongsToTenant;
 use App\Models\Enums\ChannelType;
-use App\Models\Enums\WhatsAppProviderType;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -23,10 +22,8 @@ class Channel extends Model
         'name',
         'slug',
         'type',
-        'provider_type',
         'provider_api_key',
         'provider_phone_number_id',
-        'provider_webhook_verify_token',
         'system_prompt_override',
         'ai_model_override',
         'is_active',
@@ -37,7 +34,6 @@ class Channel extends Model
     {
         return [
             'type' => ChannelType::class,
-            'provider_type' => WhatsAppProviderType::class,
             'provider_api_key' => 'encrypted',
             'is_active' => 'boolean',
             'settings' => 'array',

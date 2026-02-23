@@ -21,7 +21,7 @@ Multi-tenant SaaS platform where Latin American businesses configure AI chatbots
 | Database | PostgreSQL + pgvector |
 | AI | Laravel AI SDK (OpenAI, Anthropic, Gemini) |
 | Auth | Laravel Fortify (headless + 2FA) + Sanctum |
-| WhatsApp | YCloud (Business API) |
+| WhatsApp | Meta Cloud API (direct) |
 | Payments | MercadoPago |
 | Testing | Pest 4 (323+ tests) |
 | Queues | Database driver (Redis + Horizon planned) |
@@ -94,14 +94,14 @@ lang/
 docs/
 ├── architecture-map.md  # Technical reference (architecture, file index, patterns, how to extend)
 ├── session-claude.md    # Development session log (context for AI-assisted development)
-└── uso.md               # Quick start guide
+└── user-manual.md       # User manual (step-by-step setup and usage)
 ```
 
 ## Documentation
 
 - **[docs/architecture-map.md](docs/architecture-map.md)** — Complete technical reference: architecture, file index, patterns, common operations, and how to extend the platform
 - **[docs/session-claude.md](docs/session-claude.md)** — Development session history for continuity across AI-assisted sessions
-- **[docs/uso.md](docs/uso.md)** — Quick start guide for using the platform
+- **[docs/user-manual.md](docs/user-manual.md)** — User manual: step-by-step setup and usage guide
 
 ## Tests
 

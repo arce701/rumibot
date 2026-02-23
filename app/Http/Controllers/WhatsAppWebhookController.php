@@ -15,25 +15,23 @@ class WhatsAppWebhookController extends Controller
         private WhatsAppWebhookHandler $handler,
     ) {}
 
-    /**
-     * Handle webhook verification (GET).
-     * Used by WhatsApp providers to verify the webhook URL.
-     */
-    public function verify(Request $request, string $tenantUuid, string $channelSlug): Response
+    public static function generateVerifyToken(string $tenantUuid): string
     {
-        $channel = $this->handler->resolveChannel($tenantUuid, $channelSlug);
+        return hash_hmac('sha256', $tenantUuid, config('app.key'));
+    }
 
-        if (! $channel) {
-            return response('Not found', 404);
-        }
+    /**
+     * Handle Meta webhook verification (GET).
+     */
+    public function verify(Request $request, string $tenantUuid): Response
+    {
+        $mode = $request->query('hub_mode');
+        $challenge = $request->query('hub_challenge', '');
+        $verifyToken = $request->query('hub_verify_token', '');
 
-        $challenge = $request->query('hub_challenge', $request->query('challenge', ''));
-        $verifyToken = $request->query('hub_verify_token', $request->query('token', ''));
-
-        if ($verifyToken !== $channel->provider_webhook_verify_token) {
+        if ($mode !== 'subscribe' || $verifyToken !== static::generateVerifyToken($tenantUuid)) {
             Log::warning('Webhook verification failed', [
                 'tenant_id' => $tenantUuid,
-                'channel_slug' => $channelSlug,
             ]);
 
             return response('Forbidden', 403);
@@ -43,20 +41,26 @@ class WhatsAppWebhookController extends Controller
     }
 
     /**
-     * Handle incoming webhook events (POST).
+     * Handle incoming Meta webhook events (POST).
      */
-    public function receive(Request $request, string $tenantUuid, string $channelSlug): JsonResponse
+    public function receive(Request $request, string $tenantUuid): JsonResponse
     {
-        $channel = $this->handler->resolveChannel($tenantUuid, $channelSlug);
-
-        if (! $channel) {
-            return response()->json(['error' => 'Channel not found'], 404);
-        }
-
         $payload = $request->all();
 
         if (! $this->handler->isInboundMessageEvent($payload)) {
             return response()->json(['status' => 'ignored']);
+        }
+
+        $phoneNumberId = $this->handler->extractPhoneNumberId($payload);
+
+        if (! $phoneNumberId) {
+            return response()->json(['error' => 'Missing phone_number_id'], 400);
+        }
+
+        $channel = $this->handler->resolveChannelByPhoneNumberId($tenantUuid, $phoneNumberId);
+
+        if (! $channel) {
+            return response()->json(['error' => 'Channel not found'], 404);
         }
 
         $inboundMessage = $this->handler->parseInboundMessage($channel, $payload);

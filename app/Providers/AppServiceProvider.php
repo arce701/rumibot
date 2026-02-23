@@ -104,10 +104,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         RateLimiter::for('webhook-whatsapp', function (Request $request) {
-            $channelSlug = $request->route('channelSlug', 'unknown');
-            $tenantUuid = $request->route('tenantUuid', 'unknown');
-
-            return Limit::perMinute(120)->by('webhook:'.$tenantUuid.':'.$channelSlug);
+            return Limit::perMinute(120)->by('webhook:'.$request->route('tenantUuid', 'unknown'));
         });
 
         RateLimiter::for('webhook-payments', function (Request $request) {

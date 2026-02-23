@@ -84,7 +84,7 @@ Use `::withoutGlobalScopes()` when you need to query across tenants (e.g., super
 
 ### Important: Webhook Routes Are Stateless
 
-WhatsApp webhook routes (`/api/webhooks/whatsapp/{tenantUuid}/{channelSlug}`) resolve the tenant from the URL UUID, not from auth. See `WhatsAppWebhookController`.
+WhatsApp webhook routes (`/api/webhooks/whatsapp/{tenantUuid}`) resolve the tenant from the URL UUID and the channel from the `phone_number_id` in the Meta payload, not from auth. See `WhatsAppWebhookController`.
 
 ---
 
@@ -129,23 +129,63 @@ This is done automatically by `SetCurrentTenant` middleware. In tests, you must 
 
 ## 3. WhatsApp Integration
 
-### Architecture
+### Message Flow (End-to-End)
 
 ```
-YCloud webhook → WhatsAppWebhookController → WhatsAppWebhookHandler → ProcessIncomingMessage job
-                                                                         ↓
-                                                                    TenantChatAgent
-                                                                         ↓
-                                                                    SendWhatsAppMessage job → YCloudProvider → YCloud API
+┌─────────────┐     ┌──────────────────┐     ┌──────────────────────┐     ┌────────────────────┐
+│  Prospect    │     │  Meta Cloud API  │     │      Rumibot         │     │    AI Provider     │
+│  (WhatsApp)  │     │  (graph.facebook │     │   (Laravel App)      │     │  (OpenAI/etc.)     │
+│              │     │   .com/v21.0)    │     │                      │     │                    │
+└──────┬───────┘     └────────┬─────────┘     └──────────┬───────────┘     └─────────┬──────────┘
+       │                      │                          │                           │
+       │  1. Sends message    │                          │                           │
+       │ ──────────────────►  │                          │                           │
+       │                      │  2. Webhook POST         │                           │
+       │                      │ ──────────────────────►  │                           │
+       │                      │                          │  3. Validate & parse      │
+       │                      │                          │  (WhatsAppWebhookHandler) │
+       │                      │                          │                           │
+       │                      │                          │  4. Queue job             │
+       │                      │                          │  (ProcessIncomingMessage) │
+       │                      │                          │                           │
+       │                      │                          │  5. Build context         │
+       │                      │                          │  (conversation history +  │
+       │                      │                          │   system prompt + RAG)    │
+       │                      │                          │                           │
+       │                      │                          │  6. Send to AI            │
+       │                      │                          │ ──────────────────────►   │
+       │                      │                          │                           │
+       │                      │                          │  7. AI response           │
+       │                      │                          │ ◄────────────────────────  │
+       │                      │                          │                           │
+       │                      │  8. Send reply via API   │                           │
+       │                      │ ◄────────────────────────│                           │
+       │                      │  (SendWhatsAppMessage)   │                           │
+       │  9. Delivers reply   │                          │                           │
+       │ ◄────────────────────│                          │                           │
+       │                      │                          │                           │
 ```
+
+**Summary:** Prospect sends WhatsApp message → Meta delivers webhook to Rumibot → AI generates response → Rumibot sends reply via Meta Cloud API → Prospect receives answer on WhatsApp.
+
+### WhatsApp Provider (Meta Cloud API Direct)
+
+The system connects directly to Meta's Cloud API (`graph.facebook.com/v21.0`) — no intermediary BSP. Each tenant provides their own Meta WhatsApp Business access token and phone number IDs.
+
+- **Webhook:** One URL per tenant: `POST /api/webhooks/whatsapp/{tenantUuid}`
+- **Verify token:** Deterministic `hash_hmac('sha256', tenantUuid, APP_KEY)` — no DB column needed
+- **Channel resolution:** By `phone_number_id` from the Meta webhook payload metadata
+- **Auth:** `Authorization: Bearer {accessToken}` per channel
+
+**For Peru/LATAM:** Meta verification typically requires RUC, ficha SUNAT, and a business address document. Processing takes ~24-48 hours.
 
 ### Key Files
 
 | File | Purpose |
 |------|---------|
-| `app/Services/WhatsApp/Contracts/WhatsAppProvider.php` | Interface: `sendText()`, `sendImage()`, `sendDocument()`, `sendInteractive()`, `validateWebhook()`, `parseInboundMessage()` |
-| `app/Services/WhatsApp/YCloudProvider.php` | YCloud implementation. Uses `api.ycloud.com/v2`. Has HTTP retry (`->retry(2, 100, throw: false)`). |
-| `app/Services/WhatsApp/WhatsAppWebhookHandler.php` | Validates and parses incoming webhook payloads |
+| `app/Services/WhatsApp/Contracts/WhatsAppProvider.php` | Interface: `sendText()`, `sendImage()`, `sendDocument()`, `sendInteractive()`, `parseInboundMessage()` |
+| `app/Services/WhatsApp/MetaCloudProvider.php` | Meta Cloud API implementation. Uses `graph.facebook.com/v21.0`. Has HTTP retry (`->retry(2, 100, throw: false)`). |
+| `app/Services/WhatsApp/WhatsAppWebhookHandler.php` | Resolves channel by `phone_number_id`, validates and parses incoming Meta webhook payloads |
 | `app/Services/WhatsApp/InboundMessage.php` | DTO for normalized inbound messages |
 | `app/Http/Controllers/WhatsAppWebhookController.php` | Handles GET (verify) and POST (receive) webhook requests |
 | `app/Models/Channel.php` | WhatsApp channel config. `provider_api_key` is encrypted via cast. Slug auto-generated from name. |
@@ -154,8 +194,9 @@ YCloud webhook → WhatsAppWebhookController → WhatsAppWebhookHandler → Proc
 
 ### Webhook URL Format
 ```
-GET/POST /api/webhooks/whatsapp/{tenantUuid}/{channelSlug}
+GET/POST /api/webhooks/whatsapp/{tenantUuid}
 ```
+Channel is resolved by `phone_number_id` in the Meta payload metadata, not by URL parameter.
 
 ### Channel Types
 
@@ -318,7 +359,7 @@ MercadoPago webhook → PaymentWebhookController → Update subscription status 
 | `app/Services/Billing/SubscriptionManager.php` | Lifecycle management (create, change plan, cancel, renew) |
 | `app/Services/Billing/PlanFeatureGate.php` | Checks feature access based on active plan |
 | `app/Http/Controllers/Api/PaymentWebhookController.php` | Receives MercadoPago/Stripe webhooks |
-| `app/Models/Plan.php` | Plan definitions (Basico, Profesional, Empresa) |
+| `app/Models/Plan.php` | Plan definition (single plan "Rumibot" with 3 billing intervals) |
 | `app/Models/PlanPrice.php` | Prices per billing interval (quarterly, semi-annual, annual) |
 | `app/Models/PlanFeature.php` | Feature limits per plan (max_channels, max_messages_month, etc.) |
 | `app/Models/Subscription.php` | Active tenant subscriptions |
@@ -329,19 +370,17 @@ MercadoPago webhook → PaymentWebhookController → Update subscription status 
 
 ### Plans & Pricing
 
-| Feature | Basico | Profesional | Empresa |
-|---------|--------|-------------|---------|
-| Channels | 1 | 3 | 10 |
-| Messages/month | 500 | 2,000 | unlimited |
-| Knowledge docs | 3 | 15 | unlimited |
-| Team members | 1 | 5 | 20 |
-| Integrations | - | 3 | unlimited |
-| Analytics | - | yes | yes |
-| Data export | - | - | yes |
+Single plan: **Rumibot** — all features unlimited, no tiered restrictions. The only difference between billing options is the renewal period and discount:
 
-**Billing intervals:** Quarterly, Semi-annual (10% off), Annual (20% off). Currency: PEN (Peruvian Soles).
+| Interval | Price (USD) | Discount |
+|----------|-------------|----------|
+| Quarterly | $30 | — |
+| Semi-annual | $55 | ~8% off |
+| Annual | $110 | ~8% off |
 
-**Platform owner exemption:** Tenants with `is_platform_owner: true` bypass all billing.
+All features included for every tenant: unlimited channels, messages, documents, team members, integrations, analytics, and data export. Tenants bring and pay for their own AI API keys.
+
+**Platform owner exemption:** The first tenant (id=1, `is_platform_owner: true`) is the platform operator (RumiStar E.I.R.L.) and bypasses all billing. All other tenants must subscribe to one of the three billing intervals.
 
 **Seeder:** `database/seeders/PlansSeeder.php`
 
@@ -471,14 +510,14 @@ Defined in `AppServiceProvider::configureRateLimiting()`:
 | Limiter | Rate | Key |
 |---------|------|-----|
 | `tenant-api` | 60/min (auth) or 10/min (guest) | `tenant_id` or IP |
-| `webhook-whatsapp` | 120/min | `tenantUuid:channelSlug` |
+| `webhook-whatsapp` | 120/min | `tenantUuid` |
 | `webhook-payments` | 60/min | IP |
 
 Applied in `routes/api.php` as `throttle:{limiter-name}`.
 
 ### Tenant Isolation Audit
 
-All 11 tenant-scoped models are tested for proper isolation in `tests/Feature/Security/TenantIsolationAuditTest.php`.
+11 of 12 tenant-scoped models are tested for proper isolation in `tests/Feature/Security/TenantIsolationAuditTest.php` (`LlmCredential` is not yet included).
 
 ### Backups
 
@@ -536,14 +575,14 @@ Outbound integration webhooks are signed with `hash_hmac('sha256', $jsonPayload,
 | File type | Purpose | Safe from `lang:update`? |
 |-----------|---------|--------------------------|
 | `lang/{locale}.json` | Custom UI strings (`__('Channels')`, `__('Save')`, etc.) | Yes — `lang:update` does soft merge, preserves custom keys |
-| `lang/{locale}/enums.php` | Translated labels for all 12 enums | Yes — `laravel-lang` never touches custom PHP files |
+| `lang/{locale}/enums.php` | Translated labels for all enums | Yes — `laravel-lang` never touches custom PHP files |
 | `lang/{locale}/*.php` (auto-generated) | Framework/Fortify/validation translations | Managed by `laravel-lang` |
 
 **Only `lang:reset` (destructive) would overwrite custom JSON keys. Normal `lang:update` is safe.**
 
 ### Translatable Enums
 
-All 12 enums in `app/Models/Enums/` have a `label()` method that returns a translated string:
+All enums in `app/Models/Enums/` have a `label()` method that returns a translated string:
 
 ```php
 // Example: ChannelType.php
@@ -596,7 +635,7 @@ return [
 | `SubscriptionUsage` | `BelongsToTenant` | Usage tracking |
 | `PaymentHistory` | `BelongsToTenant` | Immutable audit log |
 
-### Enums (13)
+### Enums (12)
 
 All in `app/Models/Enums/`. Each enum has a `label(): string` method returning translated labels via `__('enums.{group}.{value}')`.
 
@@ -613,7 +652,6 @@ All in `app/Models/Enums/`. Each enum has a `label(): string` method returning t
 | `SubscriptionStatus` | `enums.subscription_status` | Active, Trialing, PastDue, Canceled, Expired |
 | `PaymentStatus` | `enums.payment_status` | Pending, Completed, Failed, Refunded |
 | `PaymentProviderType` | `enums.payment_provider` | MercadoPago, Stripe, Manual |
-| `WhatsAppProviderType` | `enums.whatsapp_provider` | YCloud, MetaCloud |
 | `WebhookEvent` | `enums.webhook_event` | ConversationStarted, MessageReceived, LeadCaptured, EscalationTriggered, ConversationClosed |
 
 ### Livewire Components (22)
@@ -680,14 +718,14 @@ Key custom configs: `config/ai.php` (provider definitions), `config/rumibot.php`
 
 **Framework:** Pest 4 | **Database:** PostgreSQL (same as production)
 
-### Test Suite (45 files, 362+ tests)
+### Test Suite (45 files, 361+ tests)
 
 | Category | Files | What They Test |
 |----------|-------|----------------|
 | Auth | 6 | Login, registration (with tenant creation), password reset, email verification, 2FA |
 | Settings | 3 | Profile update, password update, 2FA management |
 | WhatsApp | 3 | Webhook validation, messaging, channel config |
-| AI | 3 | Agent tools, ProcessIncomingMessage job, TenantChatAgent |
+| AI | 4 | Agent tools, ProcessIncomingMessage job, TenantChatAgent, PlaygroundChatAgent |
 | Knowledge | 2 | Document processing, agent knowledge search |
 | Billing | 3 | Payment webhooks, plan feature gating, subscription lifecycle |
 | Panel | 2 | Tenant panel access, CRUD operations |
@@ -798,12 +836,12 @@ Each function operates on a separate WhatsApp number (channel) with its own pers
 
 ## Roadmap
 
-All 10 implementation phases (0-9) are complete. Post-phase additions: LLM credential management, AI Configuration page, Agent Playground, registration with tenant auto-creation, channel form simplification.
+All 10 implementation phases (0-9) are complete. Post-phase additions: LLM credential management, AI Configuration page, Agent Playground, registration with tenant auto-creation, channel form simplification, Meta Cloud API direct integration (replacing YCloud BSP).
 
 | Item | Description | Priority |
 |------|-------------|----------|
 | Redis + Horizon | Migrate from `database` queue driver to Redis. Install `laravel/horizon`, change `QUEUE_CONNECTION=redis`. Transparent switch — same jobs, different driver. | On demand |
-| Production deployment | Domain, SSL, server setup, real YCloud/MercadoPago/AI provider keys | Next |
+| Production deployment | Domain, SSL, server setup, real Meta/MercadoPago/AI provider keys | Next |
 | Landing page | Branded public landing at `/` with i18n support (ES/EN/PT_BR) — partially done | In progress |
 | Analytics dashboard | `Livewire/Analytics/AnalyticsDashboard.php` — metrics and charts per tenant | Pending |
 | Streaming responses | `Tenant.ai_streaming` column exists but not yet wired. Pending Laravel AI SDK support for streaming in agents. | Pending |

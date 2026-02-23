@@ -29,10 +29,8 @@ test('create channel with all fields', function () {
         ->test(\App\Livewire\Channels\ChannelManager::class)
         ->set('name', 'Test Sales Channel')
         ->set('type', 'sales')
-        ->set('providerType', 'ycloud')
         ->set('providerApiKey', 'test-api-key-123')
         ->set('providerPhoneNumberId', '1234567890')
-        ->set('providerWebhookVerifyToken', 'verify-token')
         ->set('isActive', true)
         ->set('showForm', true)
         ->call('create')
@@ -43,7 +41,6 @@ test('create channel with all fields', function () {
         'name' => 'Test Sales Channel',
         'slug' => 'test-sales-channel',
         'type' => 'sales',
-        'provider_type' => 'ycloud',
         'provider_phone_number_id' => '1234567890',
     ]);
 });
