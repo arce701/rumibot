@@ -119,7 +119,7 @@ test('job prompts AI agent and stores assistant message', function () {
     expect($assistantMessage->content)->toBe('Hola Juan, te puedo ayudar con eso.');
 });
 
-test('job dispatches send whatsapp message with ai response', function () {
+test('job dispatches send whatsapp message with ai response and messageId', function () {
     TenantChatAgent::fake(['Gracias por tu consulta.']);
     Queue::fake([SendWhatsAppMessage::class]);
 
@@ -128,7 +128,8 @@ test('job dispatches send whatsapp message with ai response', function () {
     (new ProcessIncomingMessage($this->channel, $inbound))->handle();
 
     Queue::assertPushed(SendWhatsAppMessage::class, function ($job) {
-        return $job->text === 'Gracias por tu consulta.';
+        return $job->text === 'Gracias por tu consulta.'
+            && $job->messageId !== null;
     });
 });
 
@@ -225,4 +226,41 @@ test('job creates new conversation for closed contact', function () {
     // Should have 2: the closed one and a new active one
     expect($conversations)->toHaveCount(2);
     expect($conversations->where('status', ConversationStatus::Active))->toHaveCount(1);
+});
+
+test('job skips AI response when conversation AI is paused', function () {
+    Queue::fake([SendWhatsAppMessage::class]);
+
+    $conversation = Conversation::factory()->create([
+        'tenant_id' => $this->tenant->id,
+        'channel_id' => $this->channel->id,
+        'contact_phone' => '+51999888777',
+        'ai_paused_until' => now()->addHours(12),
+        'messages_count' => 0,
+    ]);
+
+    $inbound = makeInboundMessage();
+
+    (new ProcessIncomingMessage($this->channel, $inbound))->handle();
+
+    // Should store the user message
+    $userMessage = Message::withoutGlobalScopes()
+        ->where('conversation_id', $conversation->id)
+        ->where('role', 'user')
+        ->first();
+    expect($userMessage)->not->toBeNull();
+
+    // Should NOT create an assistant message
+    $assistantMessage = Message::withoutGlobalScopes()
+        ->where('conversation_id', $conversation->id)
+        ->where('role', 'assistant')
+        ->first();
+    expect($assistantMessage)->toBeNull();
+
+    // Should NOT dispatch SendWhatsAppMessage
+    Queue::assertNotPushed(SendWhatsAppMessage::class);
+
+    // messages_count should only include the user message
+    $conversation->refresh();
+    expect($conversation->messages_count)->toBe(1);
 });

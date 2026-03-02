@@ -15,6 +15,7 @@ use App\Services\WhatsApp\MetaCloudProvider;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
     $this->tenant = Tenant::factory()->create([
@@ -157,7 +158,7 @@ test('process incoming message stores media metadata', function () {
 
 // --- SendWhatsAppMessage Job ---
 
-test('send whatsapp message stores assistant message on success', function () {
+test('send whatsapp message stores assistant message on success (no messageId)', function () {
     Http::fake([
         'graph.facebook.com/v21.0/123456789/messages' => Http::response([
             'messaging_product' => 'whatsapp',
@@ -187,6 +188,138 @@ test('send whatsapp message stores assistant message on success', function () {
     $conversation->refresh();
     expect($conversation->messages_count)->toBe(2);
     expect($conversation->last_message_at)->not->toBeNull();
+});
+
+test('send whatsapp message updates existing message when messageId is provided', function () {
+    Http::fake([
+        'graph.facebook.com/v21.0/123456789/messages' => Http::response([
+            'messaging_product' => 'whatsapp',
+            'messages' => [['id' => 'wamid.meta-msg-002']],
+        ], 200),
+    ]);
+
+    $conversation = Conversation::factory()->create([
+        'tenant_id' => $this->tenant->id,
+        'channel_id' => $this->channel->id,
+        'contact_phone' => '+51999888777',
+        'messages_count' => 2,
+    ]);
+
+    $existingMessage = Message::create([
+        'conversation_id' => $conversation->id,
+        'tenant_id' => $this->tenant->id,
+        'role' => 'assistant',
+        'content' => 'AI generated reply',
+        'metadata' => ['provider' => 'openai'],
+    ]);
+
+    SendWhatsAppMessage::dispatchSync($conversation, 'AI generated reply', $existingMessage->id);
+
+    // Should NOT create a new message
+    expect(Message::withoutGlobalScopes()
+        ->where('conversation_id', $conversation->id)
+        ->where('role', 'assistant')
+        ->count())->toBe(1);
+
+    // Should update the existing message metadata with whatsapp_message_id
+    $existingMessage->refresh();
+    expect($existingMessage->metadata['whatsapp_message_id'])->toBe('wamid.meta-msg-002');
+    expect($existingMessage->metadata['provider'])->toBe('openai');
+
+    // Should NOT increment messages_count
+    $conversation->refresh();
+    expect($conversation->messages_count)->toBe(2);
+});
+
+test('send whatsapp message sends image via provider when mediaType is image', function () {
+    Storage::fake('s3');
+    Storage::disk('s3')->put('tenants/1/attachments/photo.jpg', 'fake-image-content');
+
+    Http::fake([
+        'graph.facebook.com/v21.0/123456789/messages' => Http::response([
+            'messaging_product' => 'whatsapp',
+            'messages' => [['id' => 'wamid.img-001']],
+        ], 200),
+    ]);
+
+    $conversation = Conversation::factory()->create([
+        'tenant_id' => $this->tenant->id,
+        'channel_id' => $this->channel->id,
+        'contact_phone' => '+51999888777',
+        'messages_count' => 1,
+    ]);
+
+    $message = Message::create([
+        'conversation_id' => $conversation->id,
+        'tenant_id' => $this->tenant->id,
+        'role' => 'assistant',
+        'content' => 'Check this photo',
+        'metadata' => ['provider' => 'human', 'media_type' => 'image'],
+    ]);
+
+    SendWhatsAppMessage::dispatchSync(
+        $conversation,
+        'Check this photo',
+        $message->id,
+        'image',
+        'tenants/1/attachments/photo.jpg',
+        'photo.jpg',
+    );
+
+    $message->refresh();
+    expect($message->metadata['whatsapp_message_id'])->toBe('wamid.img-001');
+
+    Http::assertSent(function ($request) {
+        return $request['type'] === 'image'
+            && isset($request['image']['link'])
+            && $request['image']['caption'] === 'Check this photo';
+    });
+});
+
+test('send whatsapp message sends document via provider when mediaType is document', function () {
+    Storage::fake('s3');
+    Storage::disk('s3')->put('tenants/1/attachments/report.pdf', 'fake-pdf-content');
+
+    Http::fake([
+        'graph.facebook.com/v21.0/123456789/messages' => Http::response([
+            'messaging_product' => 'whatsapp',
+            'messages' => [['id' => 'wamid.doc-001']],
+        ], 200),
+    ]);
+
+    $conversation = Conversation::factory()->create([
+        'tenant_id' => $this->tenant->id,
+        'channel_id' => $this->channel->id,
+        'contact_phone' => '+51999888777',
+        'messages_count' => 1,
+    ]);
+
+    $message = Message::create([
+        'conversation_id' => $conversation->id,
+        'tenant_id' => $this->tenant->id,
+        'role' => 'assistant',
+        'content' => '',
+        'metadata' => ['provider' => 'human', 'media_type' => 'document'],
+    ]);
+
+    SendWhatsAppMessage::dispatchSync(
+        $conversation,
+        '',
+        $message->id,
+        'document',
+        'tenants/1/attachments/report.pdf',
+        'report.pdf',
+    );
+
+    $message->refresh();
+    expect($message->metadata['whatsapp_message_id'])->toBe('wamid.doc-001');
+
+    Http::assertSent(function ($request) {
+        return $request['type'] === 'document'
+            && isset($request['document']['link'])
+            && $request['document']['filename'] === 'report.pdf'
+            && ! isset($request['document']['caption']); // empty text = no caption
+    });
 });
 
 test('send whatsapp message fails gracefully on api error', function () {

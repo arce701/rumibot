@@ -67,6 +67,15 @@ class ProcessIncomingMessage implements ShouldQueue
 
     private function generateAiResponse(Conversation $conversation): void
     {
+        if ($conversation->isAiPaused()) {
+            Log::info('AI response skipped — conversation paused for human intervention', [
+                'conversation_id' => $conversation->id,
+                'ai_paused_until' => $conversation->ai_paused_until,
+            ]);
+
+            return;
+        }
+
         $tenant = $this->channel->tenant;
 
         $credential = $tenant->defaultLlmCredential;
@@ -103,7 +112,7 @@ class ProcessIncomingMessage implements ShouldQueue
 
         $responseText = (string) $response;
 
-        Message::create([
+        $assistantMessage = Message::create([
             'conversation_id' => $conversation->id,
             'tenant_id' => $tenant->id,
             'role' => 'assistant',
@@ -119,7 +128,7 @@ class ProcessIncomingMessage implements ShouldQueue
         $conversation->increment('messages_count');
         $conversation->update(['last_message_at' => now()]);
 
-        SendWhatsAppMessage::dispatch($conversation, $responseText);
+        SendWhatsAppMessage::dispatch($conversation, $responseText, $assistantMessage->id);
     }
 
     private function findOrCreateConversation(): Conversation

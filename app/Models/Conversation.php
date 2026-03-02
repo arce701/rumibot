@@ -28,6 +28,7 @@ class Conversation extends Model
         'total_input_tokens',
         'total_output_tokens',
         'last_message_at',
+        'ai_paused_until',
     ];
 
     protected function casts(): array
@@ -39,7 +40,13 @@ class Conversation extends Model
             'total_input_tokens' => 'integer',
             'total_output_tokens' => 'integer',
             'last_message_at' => 'datetime',
+            'ai_paused_until' => 'datetime',
         ];
+    }
+
+    public function isAiPaused(): bool
+    {
+        return $this->ai_paused_until !== null && $this->ai_paused_until->isFuture();
     }
 
     public function channel(): BelongsTo

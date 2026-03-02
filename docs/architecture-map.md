@@ -168,6 +168,8 @@ This is done automatically by `SetCurrentTenant` middleware. In tests, you must 
 
 **Summary:** Prospect sends WhatsApp message → Meta delivers webhook to Rumibot → AI generates response → Rumibot sends reply via Meta Cloud API → Prospect receives answer on WhatsApp.
 
+**Human Intervention:** Operators can reply to conversations directly from the web UI. When a human sends a reply, the AI is automatically paused for 24 hours (`ai_paused_until` on `conversations`). Incoming messages are still stored but no AI response is generated while paused. The operator can resume AI at any time via the "Resume AI" button.
+
 ### WhatsApp Provider (Meta Cloud API Direct)
 
 The system connects directly to Meta's Cloud API (`graph.facebook.com/v21.0`) — no intermediary BSP. Each tenant provides their own Meta WhatsApp Business access token and phone number IDs.
@@ -705,7 +707,7 @@ All in `app/Models/Enums/`. Each enum has a `label(): string` method returning t
 
 Key custom configs: `config/ai.php` (provider definitions), `config/rumibot.php` (only `ai.timeout` — no default provider/model), `config/permission.php`, `config/backup.php`, `config/pulse.php`, `config/excel.php`
 
-### Database (27 migrations, 3 seeders)
+### Database (28 migrations, 3 seeders)
 
 **Seeders:**
 - `RolesAndPermissionsSeeder` — Roles + permissions for Spatie Permission
@@ -718,7 +720,7 @@ Key custom configs: `config/ai.php` (provider definitions), `config/rumibot.php`
 
 **Framework:** Pest 4 | **Database:** PostgreSQL (same as production)
 
-### Test Suite (45 files, 361+ tests)
+### Test Suite (46 files, 369+ tests)
 
 | Category | Files | What They Test |
 |----------|-------|----------------|
@@ -738,6 +740,7 @@ Key custom configs: `config/ai.php` (provider definitions), `config/rumibot.php`
 | Models | 1 | LlmCredential (UUID, encryption, tenant scope, soft deletes) |
 | AiConfig | 1 | AiConfigManager (CRUD credentials, model settings, permissions) |
 | Playground | 1 | AgentPlayground (chat, channel selection, permissions) |
+| Conversations | 1 | ConversationDetail (human reply, AI pause/resume) |
 | Other | 4 | Dashboard, tenant scoping, escalation notifications |
 | Unit | 2 | TextChunker, example |
 

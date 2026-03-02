@@ -241,6 +241,26 @@ Todas las conversaciones entre el bot y los contactos de WhatsApp se registran a
 3. Haz clic en una conversacion para ver el historial completo de mensajes
 4. Las conversaciones muestran: nombre del contacto, numero, canal, estado, ultimo mensaje
 
+### Intervencion humana (responder desde la web)
+
+Desde el detalle de una conversacion activa, puedes responder directamente al contacto de WhatsApp:
+
+1. Abre una conversacion activa
+2. Escribe tu respuesta en el campo de texto debajo de los mensajes
+3. Opcionalmente, adjunta un archivo haciendo clic en el icono de clip (📎):
+   - **Imagenes:** JPEG, PNG, WebP (max 5 MB) — se muestran como foto en WhatsApp
+   - **Documentos:** PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT, CSV (max 100 MB) — se envian como archivo adjunto
+   - Puedes enviar un archivo con o sin texto (el texto se usa como caption)
+   - Para quitar el adjunto antes de enviar, haz clic en el boton **Quitar adjunto**
+4. Haz clic en **Enviar** — el mensaje (y el adjunto si hay) se envia al contacto por WhatsApp
+5. La IA se pausa automaticamente por 24 horas para esa conversacion
+6. Los mensajes enviados por un operador humano se muestran con la etiqueta **Operador**
+7. Las imagenes enviadas se muestran como preview en el chat, los documentos como enlace de descarga
+
+En el sidebar de la conversacion veras el **Estado de IA**:
+- Si la IA esta pausada, se muestra la fecha/hora hasta cuando esta pausada y un boton **Reanudar IA** para reactivarla antes de que expire
+- Si la IA esta activa, el contacto recibe respuestas automaticas del bot
+
 ### Exportar conversaciones
 
 Si tu plan incluye exportacion de datos, puedes descargar las conversaciones en formato Excel (.xlsx).

@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "whatsapp-cloud-api": {
+      "source": "bellopushon/whatsapp-cloud-api",
+      "sourceType": "github",
+      "computedHash": "a91635f80534895f398d463b9a8a77ea28ce0785d90c57cbcf21e655300f9876"
+    }
+  }
+}
