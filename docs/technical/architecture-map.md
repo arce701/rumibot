@@ -240,10 +240,31 @@ Defined in `app/Models/Enums/ChannelType.php`:
 ### Agent Instructions (Multi-Layer Prompts)
 
 ```
-Base instructions + Tenant.system_prompt + Channel.system_prompt_override
+Base instructions + Tenant.system_prompt + Channel.system_prompt_override + Country context
 ```
 
 The `system_prompt_override` on the channel defines whether the bot acts as a salesperson or support agent.
+
+**Country context** is auto-appended when the prospect's country can be detected from their phone number (E.164 prefix matching). This tells the AI the prospect's country so it doesn't ask redundantly, and helps with country-specific pricing/payment methods.
+
+### Phone Number Formatting
+
+WhatsApp `wa_id` numbers arrive as raw digits (e.g. `50234850199`). The `PhoneHelper` class (`app/Support/PhoneHelper.php`) handles:
+- **Format:** `50234850199` → `+502 3485 0199` (Guatemala) — country-specific masks per country
+- **Country detection:** `50234850199` → ISO `GT`, name `Guatemala`
+- **Flag emoji:** `50234850199` → flag emoji
+- Prefix matching: 4-digit NANP Caribbean (1809 DR, 1787 PR) → 3-digit LATAM (502-509, 591-598) → 2-digit (51-58) → 1-digit (US/Canada)
+- Special handling for Mexico mobile (`521...` → `+52 1 ...`)
+- Country names in Spanish with proper accents (Peru, Mexico, Panama, etc.)
+- 27+ countries supported (all Hispanic LATAM + Brazil + common international)
+- Global helper functions `format_phone()` and `phone_flag()` available in Blade views and exports
+- Data stored as `public const COUNTRIES` (not `config()`) for unit test compatibility without framework boot
+
+| File | Purpose |
+|------|---------|
+| `app/Support/PhoneHelper.php` | Core class: format, detect country, flags |
+| `app/Support/helpers.php` | Global `format_phone()` and `phone_flag()` functions |
+| `config/phone.php` | References `PhoneHelper::COUNTRIES` constant |
 
 ### Agent Tools
 
@@ -543,10 +564,29 @@ Outbound integration webhooks are signed with `hash_hmac('sha256', $jsonPayload,
 
 | Job | Queue | Retry | Purpose |
 |-----|-------|-------|---------|
-| `ProcessIncomingMessage` | `high` | 3x (10s, 60s, 300s), 180s timeout | Receives message → Agent → AI response → send reply |
+| `ProcessIncomingMessage` | `high` | 5x, max 3 exceptions, 180s timeout. Catches `RateLimitedException` and releases with provider-aware delay (extracts `Retry-After` header or uses `AiProvider::rateLimitCooldownSeconds()`). Idempotent message storage via `whatsapp_message_id`. | Receives message → Agent → AI response → send reply |
 | `SendWhatsAppMessage` | `high` | 3x | Sends message via WhatsApp provider |
 | `DispatchIntegrationEvent` | `default` | 3x | Sends event payload to external integrations |
 | `ProcessDocument` | `low` | 3x | Processes uploaded document (extract → chunk → embed) |
+
+### Rate Limiting (ProcessIncomingMessage)
+
+When the AI provider returns a rate limit error:
+1. Job catches `RateLimitedException`
+2. Extracts `Retry-After` header from the underlying HTTP response (if available)
+3. Falls back to `AiProvider::rateLimitCooldownSeconds()` (60s for most providers, 30s for DeepSeek)
+4. Releases the job with `$this->release($delay)` — does NOT count as an exception
+5. User message is stored idempotently (checked by `whatsapp_message_id`) — never duplicated on retry
+
+### Scheduled Commands
+
+| Command | Schedule | Purpose |
+|---------|----------|---------|
+| `backup:clean` | Daily 01:00 | Clean old backups |
+| `backup:run` | Daily 02:00 | Run backup to S3 |
+| `app:retry-unanswered` | Every 2 hours | Find active conversations with unanswered user messages and generate AI responses |
+
+The `app:retry-unanswered` command (`app/Console/Commands/RetryUnansweredConversations.php`) finds conversations where the last message is from the user with no subsequent assistant reply. For each, it loads the tenant's LLM credential, generates a response via `TenantChatAgent`, and dispatches `SendWhatsAppMessage`. Handles rate limits gracefully (logs warning and skips).
 
 **Queue driver:** `database` (migration to Redis + Horizon planned "on demand").
 
@@ -623,7 +663,7 @@ return [
 | `Tenant` | `SoftDeletes`, `LogsActivity` | `is_platform_owner`, `system_prompt`, `default_llm_credential_id`, `default_ai_model`, AI settings |
 | `LlmCredential` | `BelongsToTenant`, `SoftDeletes` | `api_key` encrypted, `provider` (AiProvider enum) |
 | `Channel` | `BelongsToTenant`, `SoftDeletes`, `LogsActivity` | `provider_api_key` encrypted, slug auto-generated |
-| `Conversation` | `BelongsToTenant`, `SoftDeletes` | Token tracking |
+| `Conversation` | `BelongsToTenant`, `SoftDeletes` | Token tracking, `contact_country` (ISO 2-letter, auto-detected from phone) |
 | `Message` | `BelongsToTenant` | Immutable, no soft delete |
 | `Lead` | `BelongsToTenant`, `SoftDeletes`, `LogsActivity` | Captured by AI |
 | `Escalation` | `BelongsToTenant`, `SoftDeletes` | Human escalation requests |
@@ -643,7 +683,7 @@ All in `app/Models/Enums/`. Each enum has a `label(): string` method returning t
 
 | Enum | Translation group | Values |
 |------|-------------------|--------|
-| `AiProvider` | `enums.ai_provider` | OpenAi, Anthropic, Gemini, Groq, DeepSeek, Mistral, XAi, OpenRouter. Has `models(): array` method. |
+| `AiProvider` | `enums.ai_provider` | OpenAi, Anthropic, Gemini, Groq, DeepSeek, Mistral, XAi, OpenRouter. Has `models(): array` and `rateLimitCooldownSeconds(): int` methods. |
 | `ChannelType` | `enums.channel_type` | Sales, Support |
 | `ConversationStatus` | `enums.conversation_status` | Active, Closed, Escalated |
 | `LeadStatus` | `enums.lead_status` | New, Contacted, Converted, Lost |
@@ -694,6 +734,12 @@ All in `app/Models/Enums/`. Each enum has a `label(): string` method returning t
 | `SetTenantFromToken` | API | Resolves tenant from Sanctum token |
 | `SetLogContext` | Web + API | Adds tenant_id/user_id to log context |
 
+### Console Commands (1)
+
+| Command | Signature | Purpose |
+|---------|-----------|---------|
+| `RetryUnansweredConversations` | `app:retry-unanswered` | Finds active conversations with unanswered user messages, generates AI responses, sends via WhatsApp |
+
 ### Routes (4 files)
 
 | File | Purpose |
@@ -701,13 +747,13 @@ All in `app/Models/Enums/`. Each enum has a `label(): string` method returning t
 | `routes/web.php` | Tenant routes (dashboard, channels, ai-config, prompts, knowledge, playground, conversations, leads, escalations, integrations, billing, team, activity) + Platform routes (`/platform/*`) |
 | `routes/api.php` | WhatsApp webhooks, Payment webhooks, API v1 (Sanctum) |
 | `routes/settings.php` | User profile, password, 2FA settings |
-| `routes/console.php` | Scheduled commands (backup:clean, backup:run) |
+| `routes/console.php` | Scheduled commands (backup:clean, backup:run, app:retry-unanswered) |
 
-### Config Files (20)
+### Config Files (21)
 
-Key custom configs: `config/ai.php` (provider definitions), `config/rumibot.php` (only `ai.timeout` — no default provider/model), `config/permission.php`, `config/backup.php`, `config/pulse.php`, `config/excel.php`
+Key custom configs: `config/ai.php` (provider definitions), `config/rumibot.php` (only `ai.timeout` — no default provider/model), `config/phone.php` (country code map for phone formatting), `config/permission.php`, `config/backup.php`, `config/pulse.php`, `config/excel.php`
 
-### Database (28 migrations, 3 seeders)
+### Database (29 migrations, 3 seeders)
 
 **Seeders:**
 - `RolesAndPermissionsSeeder` — Roles + permissions for Spatie Permission
@@ -720,14 +766,14 @@ Key custom configs: `config/ai.php` (provider definitions), `config/rumibot.php`
 
 **Framework:** Pest 4 | **Database:** PostgreSQL (same as production)
 
-### Test Suite (46 files, 369+ tests)
+### Test Suite (49 files, 432+ tests)
 
 | Category | Files | What They Test |
 |----------|-------|----------------|
 | Auth | 6 | Login, registration (with tenant creation), password reset, email verification, 2FA |
 | Settings | 3 | Profile update, password update, 2FA management |
 | WhatsApp | 3 | Webhook validation, messaging, channel config |
-| AI | 4 | Agent tools, ProcessIncomingMessage job, TenantChatAgent, PlaygroundChatAgent |
+| AI | 4 | Agent tools (incl. country auto-detect), ProcessIncomingMessage (incl. rate limiting, idempotency), TenantChatAgent (incl. country context), PlaygroundChatAgent |
 | Knowledge | 2 | Document processing, agent knowledge search |
 | Billing | 3 | Payment webhooks, plan feature gating, subscription lifecycle |
 | Panel | 2 | Tenant panel access, CRUD operations |
@@ -742,7 +788,7 @@ Key custom configs: `config/ai.php` (provider definitions), `config/rumibot.php`
 | Playground | 1 | AgentPlayground (chat, channel selection, permissions) |
 | Conversations | 1 | ConversationDetail (human reply, AI pause/resume) |
 | Other | 4 | Dashboard, tenant scoping, escalation notifications |
-| Unit | 2 | TextChunker, example |
+| Unit | 3 | TextChunker, PhoneHelper (48 tests: format, detect, flags, prefix priority, all LATAM countries), RetryUnansweredConversations |
 
 ### Running Tests
 
@@ -839,7 +885,7 @@ Each function operates on a separate WhatsApp number (channel) with its own pers
 
 ## Roadmap
 
-All 10 implementation phases (0-9) are complete. Post-phase additions: LLM credential management, AI Configuration page, Agent Playground, registration with tenant auto-creation, channel form simplification, Meta Cloud API direct integration (replacing YCloud BSP).
+All 10 implementation phases (0-9) are complete. Post-phase additions: LLM credential management, AI Configuration page, Agent Playground, registration with tenant auto-creation, channel form simplification, Meta Cloud API direct integration (replacing YCloud BSP), phone formatting & country detection, AI rate limiting, retry unanswered conversations command.
 
 | Item | Description | Priority |
 |------|-------------|----------|

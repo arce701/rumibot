@@ -12,6 +12,7 @@ use App\Models\Enums\ChannelType;
 use App\Models\Enums\DocumentStatus;
 use App\Models\KnowledgeChunk;
 use App\Models\Tenant;
+use App\Support\PhoneHelper;
 use Laravel\Ai\Attributes\MaxTokens;
 use Laravel\Ai\Attributes\Temperature;
 use Laravel\Ai\Contracts\Agent;
@@ -41,6 +42,7 @@ class TenantChatAgent implements Agent, Conversational, HasMiddleware, HasTools
             config('rumibot.base_prompt'),
             $this->tenant->system_prompt,
             $this->channel->system_prompt_override,
+            $this->buildCountryContext(),
         ]));
     }
 
@@ -92,6 +94,30 @@ class TenantChatAgent implements Agent, Conversational, HasMiddleware, HasTools
         }
 
         return $tools;
+    }
+
+    private function buildCountryContext(): ?string
+    {
+        $iso = $this->conversation->contact_country;
+
+        if (! $iso) {
+            $iso = PhoneHelper::detectCountryIso($this->conversation->contact_phone);
+        }
+
+        if (! $iso) {
+            return null;
+        }
+
+        $name = PhoneHelper::countryNameFromIso($iso);
+
+        if (! $name) {
+            return null;
+        }
+
+        $phone = $this->conversation->contact_phone;
+        $formatted = PhoneHelper::format($phone);
+
+        return "Contexto: El prospecto escribe desde {$name} ({$formatted}). Ya conoces su pais — no lo preguntes. Usa esta informacion para la captura de leads y para mostrar precios/metodos de pago del pais correcto.";
     }
 
     public function middleware(): array

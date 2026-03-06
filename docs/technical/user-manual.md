@@ -239,7 +239,8 @@ Todas las conversaciones entre el bot y los contactos de WhatsApp se registran a
 1. Ve a **Conversaciones** en el sidebar
 2. Usa los filtros para buscar: por canal, por estado (activa, cerrada, escalada), por texto
 3. Haz clic en una conversacion para ver el historial completo de mensajes
-4. Las conversaciones muestran: nombre del contacto, numero, canal, estado, ultimo mensaje
+4. Las conversaciones muestran: nombre del contacto, numero formateado (ej. `+502 3485 0199`), canal, estado, ultimo mensaje
+5. El pais del contacto se detecta automaticamente del codigo de pais del numero de telefono y se guarda en la conversacion
 
 ### Intervencion humana (responder desde la web)
 
@@ -269,7 +270,7 @@ Si tu plan incluye exportacion de datos, puedes descargar las conversaciones en 
 
 ## 10. Leads (prospectos)
 
-El bot captura automaticamente datos de contacto de los prospectos durante conversaciones en canales de tipo **Sales**.
+El bot captura automaticamente datos de contacto de los prospectos durante conversaciones en canales de tipo **Sales**. El pais del prospecto se detecta automaticamente del numero de telefono si la IA no lo provee explicitamente.
 
 ### Ver y gestionar leads
 
@@ -423,6 +424,17 @@ php artisan queue:work --queue=high,default,low
 | `default` | Despacho de eventos a integraciones externas (DispatchIntegrationEvent) |
 | `low` | Procesamiento de documentos (ProcessDocument) |
 
+### Reintentos y Rate Limiting
+
+El job `ProcessIncomingMessage` maneja automaticamente los limites de peticiones (rate limits) de los proveedores de IA:
+
+- Si el proveedor rechaza la peticion por rate limit, el job se **vuelve a encolar** con un retraso inteligente segun el proveedor
+- El sistema intenta leer el header `Retry-After` de la respuesta del proveedor para usar el tiempo exacto de espera; si no esta disponible, usa el cooldown por defecto del proveedor (ej: 60s para Gemini, OpenAI, Anthropic; 30s para DeepSeek)
+- El mensaje del usuario **nunca se pierde ni se duplica** — se guarda una sola vez y se reutiliza en los reintentos
+- Maximo **5 intentos** totales, maximo **3 excepciones** reales (las liberaciones por rate limit no cuentan como excepcion)
+- Si el job falla permanentemente, se registra en los logs para su revision
+- Cada **2 horas**, un comando programado (`app:retry-unanswered`) busca conversaciones que quedaron sin respuesta y genera la respuesta automaticamente
+
 ### En desarrollo
 
 Para desarrollo local, puedes usar:
@@ -457,7 +469,7 @@ Esto levanta el servidor de Vite y el worker simultaneamente.
 3. WhatsAppWebhookController valida y parsea el payload
 4. Se despacha el job ProcessIncomingMessage (cola high)
 5. El job carga la credencial LLM del tenant
-6. El AI Agent construye el contexto: historial + prompt + Knowledge Base (RAG)
+6. El AI Agent construye el contexto: historial + prompt + Knowledge Base (RAG) + pais del contacto
 7. Se envia la consulta al proveedor AI (OpenAI, Anthropic, etc.)
 8. El AI responde (puede usar herramientas: buscar documentos, capturar lead, escalar)
 9. Se despacha el job SendWhatsAppMessage (cola high)

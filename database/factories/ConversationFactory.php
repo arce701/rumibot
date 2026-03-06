@@ -19,6 +19,7 @@ class ConversationFactory extends Factory
             'channel_id' => Channel::factory(),
             'contact_phone' => fake()->numerify('+51#########'),
             'contact_name' => fake()->name(),
+            'contact_country' => 'PE',
             'status' => ConversationStatus::Active,
             'current_intent' => null,
             'metadata' => [],

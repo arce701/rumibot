@@ -7,22 +7,29 @@ use App\Events\ConversationStarted;
 use App\Events\MessageReceived;
 use App\Models\Channel;
 use App\Models\Conversation;
+use App\Models\Enums\AiProvider;
 use App\Models\Enums\ConversationStatus;
 use App\Models\Message;
 use App\Services\WhatsApp\InboundMessage;
+use App\Support\PhoneHelper;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\Log;
+use Laravel\Ai\Exceptions\RateLimitedException;
+use Throwable;
 
 class ProcessIncomingMessage implements ShouldQueue
 {
     use Queueable;
 
-    public int $tries = 3;
+    public int $tries = 5;
+
+    public int $maxExceptions = 3;
 
     /** @var array<int, int> */
-    public array $backoff = [10, 60, 300];
+    public array $backoff = [10, 30, 60, 120, 300];
 
     public int $timeout = 180;
 
@@ -38,6 +45,24 @@ class ProcessIncomingMessage implements ShouldQueue
         Context::add('tenant_id', $this->channel->tenant_id);
 
         $conversation = $this->findOrCreateConversation();
+
+        $this->storeIncomingMessage($conversation);
+
+        $this->generateAiResponse($conversation);
+    }
+
+    private function storeIncomingMessage(Conversation $conversation): Message
+    {
+        if ($this->inboundMessage->messageId) {
+            $existing = Message::withoutGlobalScopes()
+                ->where('conversation_id', $conversation->id)
+                ->where('metadata->whatsapp_message_id', $this->inboundMessage->messageId)
+                ->first();
+
+            if ($existing) {
+                return $existing;
+            }
+        }
 
         $message = Message::create([
             'conversation_id' => $conversation->id,
@@ -62,7 +87,7 @@ class ProcessIncomingMessage implements ShouldQueue
             'from' => $this->inboundMessage->from,
         ]);
 
-        $this->generateAiResponse($conversation);
+        return $message;
     }
 
     private function generateAiResponse(Conversation $conversation): void
@@ -104,11 +129,26 @@ class ProcessIncomingMessage implements ShouldQueue
             return;
         }
 
-        $response = $agent->prompt(
-            $this->inboundMessage->content,
-            provider: $provider,
-            model: $model,
-        );
+        try {
+            $response = $agent->prompt(
+                $this->inboundMessage->content,
+                provider: $provider,
+                model: $model,
+            );
+        } catch (RateLimitedException $e) {
+            $delay = $this->resolveRetryAfter($e, $provider);
+
+            Log::warning('AI provider rate limited, releasing job for retry', [
+                'conversation_id' => $conversation->id,
+                'provider' => $provider,
+                'attempt' => $this->attempts(),
+                'retry_in_seconds' => $delay,
+            ]);
+
+            $this->release($delay);
+
+            return;
+        }
 
         $responseText = (string) $response;
 
@@ -131,6 +171,33 @@ class ProcessIncomingMessage implements ShouldQueue
         SendWhatsAppMessage::dispatch($conversation, $responseText, $assistantMessage->id);
     }
 
+    private function resolveRetryAfter(RateLimitedException $e, string $provider): int
+    {
+        $previous = $e->getPrevious();
+
+        if ($previous instanceof RequestException && $previous->response) {
+            $retryAfter = $previous->response->header('Retry-After')
+                ?? $previous->response->header('retry-after');
+
+            if ($retryAfter && is_numeric($retryAfter)) {
+                return max(1, (int) $retryAfter);
+            }
+        }
+
+        $aiProvider = AiProvider::tryFrom($provider);
+
+        return $aiProvider?->rateLimitCooldownSeconds() ?? 60;
+    }
+
+    public function failed(?Throwable $exception): void
+    {
+        Log::error('ProcessIncomingMessage permanently failed', [
+            'channel_id' => $this->channel->id,
+            'from' => $this->inboundMessage->from,
+            'exception' => $exception?->getMessage(),
+        ]);
+    }
+
     private function findOrCreateConversation(): Conversation
     {
         $conversation = Conversation::withoutGlobalScopes()
@@ -148,6 +215,7 @@ class ProcessIncomingMessage implements ShouldQueue
             'channel_id' => $this->channel->id,
             'contact_phone' => $this->inboundMessage->from,
             'contact_name' => $this->inboundMessage->contactName,
+            'contact_country' => PhoneHelper::detectCountryIso($this->inboundMessage->from),
             'status' => ConversationStatus::Active,
             'metadata' => [],
         ]);

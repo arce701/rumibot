@@ -19,6 +19,24 @@ enum AiProvider: string
     }
 
     /**
+     * Default cooldown in seconds when rate limited by this provider.
+     * Based on each provider's documented rate limit reset window.
+     */
+    public function rateLimitCooldownSeconds(): int
+    {
+        return match ($this) {
+            self::Gemini => 60,
+            self::OpenAi => 60,
+            self::Anthropic => 60,
+            self::Groq => 60,
+            self::DeepSeek => 30,
+            self::Mistral => 60,
+            self::XAi => 60,
+            self::OpenRouter => 60,
+        };
+    }
+
+    /**
      * @return string[]
      */
     public function models(): array

@@ -156,6 +156,39 @@ test('agent assertNeverPrompted passes when no prompts sent', function () {
     TenantChatAgent::assertNeverPrompted();
 });
 
+test('agent instructions include country context when conversation has contact_country', function () {
+    $conversation = Conversation::factory()->create([
+        'tenant_id' => $this->tenant->id,
+        'channel_id' => $this->salesChannel->id,
+        'contact_phone' => '50234850199',
+        'contact_country' => 'GT',
+    ]);
+
+    $agent = new TenantChatAgent($this->tenant, $this->salesChannel, $conversation);
+
+    $instructions = $agent->instructions();
+
+    expect($instructions)
+        ->toContain('Guatemala')
+        ->toContain('+502 3485 0199')
+        ->toContain('no lo preguntes');
+});
+
+test('agent instructions detect country from phone when contact_country is null', function () {
+    $conversation = Conversation::factory()->create([
+        'tenant_id' => $this->tenant->id,
+        'channel_id' => $this->salesChannel->id,
+        'contact_phone' => '51999888777',
+        'contact_country' => null,
+    ]);
+
+    $agent = new TenantChatAgent($this->tenant, $this->salesChannel, $conversation);
+
+    $instructions = $agent->instructions();
+
+    expect($instructions)->toContain('Perú');
+});
+
 test('agent fake returns sequential responses', function () {
     TenantChatAgent::fake([
         'Primera respuesta',

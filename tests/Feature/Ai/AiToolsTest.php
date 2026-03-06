@@ -7,7 +7,6 @@ use App\Jobs\SendWhatsAppMessage;
 use App\Models\Channel;
 use App\Models\Conversation;
 use App\Models\Enums\ConversationStatus;
-use App\Models\Enums\LeadStatus;
 use App\Models\Escalation;
 use App\Models\Lead;
 use App\Models\Tenant;
@@ -102,6 +101,31 @@ test('capture lead uses conversation phone as default', function () {
     $lead = Lead::withoutGlobalScopes()->where('conversation_id', $this->conversation->id)->first();
 
     expect($lead->phone)->toBe('+51999888777');
+});
+
+test('capture lead auto-detects country from phone when not provided', function () {
+    $tool = new CaptureLead($this->conversation);
+
+    $tool->handle(new Request([
+        'full_name' => 'Carlos Méndez',
+    ]));
+
+    $lead = Lead::withoutGlobalScopes()->where('conversation_id', $this->conversation->id)->first();
+
+    expect($lead->country)->toBe('Perú');
+});
+
+test('capture lead uses provided country over auto-detected', function () {
+    $tool = new CaptureLead($this->conversation);
+
+    $tool->handle(new Request([
+        'full_name' => 'Carlos Méndez',
+        'country' => 'Chile',
+    ]));
+
+    $lead = Lead::withoutGlobalScopes()->where('conversation_id', $this->conversation->id)->first();
+
+    expect($lead->country)->toBe('Chile');
 });
 
 // --- EscalateToHuman Tests ---

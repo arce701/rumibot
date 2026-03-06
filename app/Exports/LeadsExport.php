@@ -3,6 +3,7 @@
 namespace App\Exports;
 
 use App\Models\Lead;
+use App\Support\PhoneHelper;
 use Illuminate\Database\Eloquent\Builder;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
@@ -56,7 +57,7 @@ class LeadsExport implements FromQuery, ShouldAutoSize, WithHeadings, WithMappin
     {
         return [
             $row->full_name,
-            $row->phone,
+            PhoneHelper::format($row->phone),
             $row->email,
             $row->company_name,
             $row->status->value,

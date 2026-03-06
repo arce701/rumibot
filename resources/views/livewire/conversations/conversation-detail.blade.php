@@ -5,7 +5,12 @@
         <flux:button :href="route('conversations')" variant="ghost" icon="arrow-left" wire:navigate />
         <div>
             <flux:heading size="xl">{{ $conversation->contact_name ?? $conversation->contact_phone }}</flux:heading>
-            <flux:text size="sm" class="text-zinc-500">{{ $conversation->contact_phone }}</flux:text>
+            <flux:text size="sm" class="text-zinc-500">
+                {{ phone_flag($conversation->contact_phone) }} {{ format_phone($conversation->contact_phone) }}
+                @if ($conversation->contact_country)
+                    · {{ \App\Support\PhoneHelper::countryNameFromIso($conversation->contact_country) }}
+                @endif
+            </flux:text>
         </div>
     </div>
 
@@ -106,6 +111,12 @@
             <div class="rounded-xl border border-zinc-200 bg-white p-6 dark:border-zinc-700 dark:bg-zinc-900">
                 <flux:heading size="base" class="mb-4">{{ __('Info') }}</flux:heading>
                 <dl class="space-y-3">
+                    @if ($conversation->contact_country)
+                        <div>
+                            <flux:text size="sm" class="text-zinc-500">{{ __('Country') }}</flux:text>
+                            <flux:text>{{ \App\Support\PhoneHelper::flagFromIso($conversation->contact_country) }} {{ \App\Support\PhoneHelper::countryNameFromIso($conversation->contact_country) }}</flux:text>
+                        </div>
+                    @endif
                     <div>
                         <flux:text size="sm" class="text-zinc-500">{{ __('Channel') }}</flux:text>
                         <flux:text>{{ $channel?->name ?? '-' }}</flux:text>

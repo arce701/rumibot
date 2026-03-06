@@ -57,7 +57,12 @@
                             <td class="whitespace-nowrap px-6 py-4">
                                 <div>
                                     <flux:text class="font-medium">{{ $conversation->contact_name ?? __('Unknown') }}</flux:text>
-                                    <flux:text size="sm" class="text-zinc-500">{{ $conversation->contact_phone }}</flux:text>
+                                    <flux:text size="sm" class="text-zinc-500">
+                                        {{ phone_flag($conversation->contact_phone) }} {{ format_phone($conversation->contact_phone) }}
+                                        @if ($conversation->contact_country)
+                                            · {{ \App\Support\PhoneHelper::countryNameFromIso($conversation->contact_country) }}
+                                        @endif
+                                    </flux:text>
                                 </div>
                             </td>
                             <td class="whitespace-nowrap px-6 py-4">

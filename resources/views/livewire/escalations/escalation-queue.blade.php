@@ -32,7 +32,7 @@
                         <tr wire:key="esc-{{ $escalation->id }}">
                             <td class="whitespace-nowrap px-6 py-4">
                                 <flux:text class="font-medium">{{ $escalation->conversation?->contact_name ?? __('Unknown') }}</flux:text>
-                                <flux:text size="sm" class="text-zinc-500">{{ $escalation->conversation?->contact_phone }}</flux:text>
+                                <flux:text size="sm" class="text-zinc-500">{{ phone_flag($escalation->conversation?->contact_phone ?? '') }} {{ format_phone($escalation->conversation?->contact_phone ?? '') }}</flux:text>
                             </td>
                             <td class="whitespace-nowrap px-6 py-4">
                                 <flux:badge>{{ $escalation->reason }}</flux:badge>

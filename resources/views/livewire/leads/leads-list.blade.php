@@ -57,7 +57,7 @@
                                 <flux:text class="font-medium">{{ $lead->full_name }}</flux:text>
                             </td>
                             <td class="px-6 py-4">
-                                <flux:text size="sm">{{ $lead->phone }}</flux:text>
+                                <flux:text size="sm">{{ phone_flag($lead->phone) }} {{ format_phone($lead->phone) }}</flux:text>
                                 @if ($lead->email)
                                     <flux:text size="sm" class="text-zinc-500">{{ $lead->email }}</flux:text>
                                 @endif

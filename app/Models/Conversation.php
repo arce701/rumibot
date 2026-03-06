@@ -21,6 +21,7 @@ class Conversation extends Model
         'channel_id',
         'contact_phone',
         'contact_name',
+        'contact_country',
         'status',
         'current_intent',
         'metadata',

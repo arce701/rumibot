@@ -3,6 +3,7 @@
 namespace App\Exports;
 
 use App\Models\Conversation;
+use App\Support\PhoneHelper;
 use Illuminate\Database\Eloquent\Builder;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
@@ -56,7 +57,7 @@ class ConversationsExport implements FromQuery, ShouldAutoSize, WithHeadings, Wi
     {
         return [
             $row->contact_name,
-            $row->contact_phone,
+            PhoneHelper::format($row->contact_phone),
             $row->channel?->name,
             $row->status->value,
             $row->messages_count,

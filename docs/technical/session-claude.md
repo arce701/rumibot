@@ -239,13 +239,114 @@ Dashboard → Channels → AI Configuration → Prompts → Knowledge Base → A
 
 ---
 
+## Sesion 8 — Formato de telefono, deteccion de pais, rate limiting AI, retry unanswered
+
+**Fecha:** 2026-03-05
+
+### Tarea 1: PhoneHelper — formato y deteccion de pais desde wa_id
+
+Los numeros de WhatsApp llegan como `wa_id` (E.164 sin `+`, solo digitos como `50234850199`). Se creo un sistema completo para formatear y detectar pais.
+
+**Archivos creados:**
+| Archivo | Proposito |
+|---------|-----------|
+| `app/Support/PhoneHelper.php` | Clase con `COUNTRIES` const, metodos: `format()`, `detectCountryIso()`, `detectCountryName()`, `countryNameFromIso()`, `flagForPhone()`, `flagFromIso()` |
+| `app/Support/helpers.php` | Funciones globales `format_phone()` y `phone_flag()` |
+| `config/phone.php` | Referencia a `PhoneHelper::COUNTRIES` |
+| `database/migrations/..._add_contact_country_to_conversations_table.php` | `contact_country` VARCHAR(2) nullable en conversations |
+| `tests/Unit/PhoneHelperTest.php` | 48 tests unitarios |
+
+**Decisiones tecnicas:**
+- Datos de paises en `public const COUNTRIES` (no `config()`) para que funcionen en tests unitarios sin boot del framework
+- Matching de prefijos por longitud descendente: 4 digitos (NANP Caribbean: 1809 DR, 1787 PR) → 3 digitos (502-509, 591-598 LATAM) → 2 digitos (51-58) → 1 digito (US/Canada)
+- Mascaras por pais: Peru `999 999 999`, Guatemala `9999 9999`, Mexico `1 999 999 9999`, etc.
+- Nombres de paises en espanol con tildes: Peru, Mexico, Panama, Haiti, Republica Dominicana, etc.
+- Banderas emoji Unicode por pais
+
+**Paises soportados (27):** MX, GT, SV, HN, NI, CR, PA, CU, DO, PR, HT, CO, VE, EC, PE, BO, CL, AR, UY, PY, BR, GQ, GY, GF, MQ, SR + US, ES, FR, IT, GB, DE, AU, ID, PH, JP, KR, CN, IN
+
+### Tarea 2: Deteccion automatica de pais en conversaciones y AI
+
+**Archivos modificados:**
+| Archivo | Cambio |
+|---------|--------|
+| `app/Models/Conversation.php` | `contact_country` en `$fillable` |
+| `database/factories/ConversationFactory.php` | `'contact_country' => 'PE'` |
+| `app/Jobs/ProcessIncomingMessage.php` | `contact_country` auto-detectado al crear conversacion |
+| `app/Ai/Agents/TenantChatAgent.php` | Nuevo metodo `buildCountryContext()` — inyecta pais en instructions del agente |
+| `app/Ai/Tools/CaptureLead.php` | Auto-detecta pais del telefono como fallback si la IA no lo provee |
+
+**Contexto de pais inyectado al agente:**
+> "Contexto: El prospecto escribe desde Peru (+51 999 888 777). Ya conoces su pais — no lo preguntes. Usa esta informacion para la captura de leads y para mostrar precios/metodos de pago del pais correcto."
+
+### Tarea 3: Telefonos formateados en vistas y exports
+
+**Archivos modificados:**
+| Archivo | Cambio |
+|---------|--------|
+| `resources/views/livewire/conversations/conversation-list.blade.php` | Bandera + telefono formateado + nombre de pais |
+| `resources/views/livewire/conversations/conversation-detail.blade.php` | Bandera + telefono + pais en header y sidebar Info |
+| `resources/views/livewire/leads/leads-list.blade.php` | Bandera + telefono formateado |
+| `resources/views/livewire/escalations/escalation-queue.blade.php` | Bandera + telefono formateado |
+| `app/Exports/LeadsExport.php` | `PhoneHelper::format()` en `map()` |
+| `app/Exports/ConversationsExport.php` | `PhoneHelper::format()` en `map()` |
+| `composer.json` | `autoload.files` → `app/Support/helpers.php` |
+
+### Tarea 4: Rate limiting inteligente en ProcessIncomingMessage
+
+**Archivos modificados:**
+| Archivo | Cambio |
+|---------|--------|
+| `app/Jobs/ProcessIncomingMessage.php` | Refactorizado: tries 3→5, maxExceptions 3, catch `RateLimitedException`, idempotencia de mensajes con `whatsapp_message_id`, `resolveRetryAfter()` extrae header Retry-After o usa cooldown del provider |
+| `app/Models/Enums/AiProvider.php` | Nuevo metodo `rateLimitCooldownSeconds()` (30-60s segun provider) |
+| `config/rumibot.php` | Base prompt mejorado: reglas de captura de leads, recoleccion natural de datos, formato WhatsApp con negritas |
+
+**Flujo de rate limiting:**
+1. AI provider rechaza por rate limit → `RateLimitedException`
+2. Job lee header `Retry-After` de la respuesta HTTP
+3. Si no hay header, usa `AiProvider::rateLimitCooldownSeconds()`
+4. Job se re-encola con `$this->release($delay)` (no cuenta como excepcion)
+5. Mensaje del usuario se guarda UNA sola vez (idempotente por `whatsapp_message_id`)
+
+### Tarea 5: Comando app:retry-unanswered
+
+**Archivos creados:**
+| Archivo | Proposito |
+|---------|-----------|
+| `app/Console/Commands/RetryUnansweredConversations.php` | Busca conversaciones activas con ultimo mensaje de usuario sin respuesta del asistente. Genera respuesta AI y la envia por WhatsApp. |
+
+**Schedule:** `routes/console.php` → `Schedule::command('app:retry-unanswered')->everyTwoHours()`
+
+**Logica:**
+- Busca conversaciones activas (no pausadas) con ultimo mensaje `role=user` sin `role=assistant` posterior
+- Para cada una: carga credencial LLM del tenant, genera respuesta con TenantChatAgent, envia por WhatsApp
+- Maneja rate limits con logging y skip
+- Muestra tabla con resumen y resultado succeeded/failed
+
+### Tarea 6: Traducciones i18n
+
+**Archivos modificados:** `lang/en.json`, `lang/es.json`, `lang/pt_BR.json` — agregadas llaves: "Country", "No unanswered conversations found.", ":succeeded succeeded, :failed failed.", "No LLM credential for tenant :name", "No AI model configured", "Rate limited by :provider -- skip and try later", "Response sent", "Failed"
+
+### Tests agregados
+
+| Archivo | Tests nuevos |
+|---------|-------------|
+| `tests/Unit/PhoneHelperTest.php` | 48 tests (format, detect, flags, prefix priority, all LATAM countries) |
+| `tests/Feature/Ai/ProcessIncomingMessageTest.php` | `job stores contact country when creating new conversation`, `job handles rate limit exception and releases for retry`, `job does not duplicate user message on retry`, `job conversation messages_count is correct after rate limit retry` |
+| `tests/Feature/Ai/TenantChatAgentTest.php` | `agent instructions include country context when conversation has contact_country`, `agent instructions detect country from phone when contact_country is null` |
+| `tests/Feature/Ai/AiToolsTest.php` | `capture lead auto-detects country from phone when not provided`, `capture lead uses provided country over auto-detected` |
+
+**Resultado:** 432 tests pasando, 1 skipped
+
+---
+
 ## Estado actual del proyecto
 
-**Tests:** 361 pasando, 1 skipped
+**Tests:** 432 pasando, 1 skipped
 **Branch:** main
 **Super admin:** rumibot8@gmail.com / Rumi2026$
 **Plan:** Rumibot (unico) en USD — $30/trim, $55/sem, $110/anual
-**Fases completadas:** 0-9 (todas) + post-fase (LLM credentials, AI config, playground, registration fix, Meta Cloud API migration)
-**Modelos:** 17 (12 tenant-scoped) | **Enums:** 12 | **Livewire:** 22 | **Migraciones:** 27
+**Fases completadas:** 0-9 (todas) + post-fase (LLM credentials, AI config, playground, registration fix, Meta Cloud API migration, phone formatting, rate limiting, retry unanswered)
+**Modelos:** 17 (12 tenant-scoped) | **Enums:** 12 | **Livewire:** 22 | **Migraciones:** 29
 **Docs:** `architecture-map.md` (referencia tecnica), `session-claude.md` (log de sesiones), `user-manual.md` (manual de usuario)
 **Pendiente:** Deployment, dominio produccion, configuracion real de Meta Cloud API/MercadoPago/AI providers, streaming AI, analytics dashboard

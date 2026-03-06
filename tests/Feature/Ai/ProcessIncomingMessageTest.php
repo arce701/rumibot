@@ -10,7 +10,9 @@ use App\Models\LlmCredential;
 use App\Models\Message;
 use App\Models\Tenant;
 use App\Services\WhatsApp\InboundMessage;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
+use Laravel\Ai\Exceptions\RateLimitedException;
 
 beforeEach(function () {
     $this->tenant = Tenant::factory()->create([
@@ -263,4 +265,99 @@ test('job skips AI response when conversation AI is paused', function () {
     // messages_count should only include the user message
     $conversation->refresh();
     expect($conversation->messages_count)->toBe(1);
+});
+
+test('job handles rate limit exception and releases for retry', function () {
+    Queue::fake([SendWhatsAppMessage::class]);
+    Log::spy();
+
+    TenantChatAgent::fake(fn () => throw RateLimitedException::forProvider('gemini'));
+
+    $inbound = makeInboundMessage();
+
+    (new ProcessIncomingMessage($this->channel, $inbound))->handle();
+
+    // User message should be stored
+    $userMessage = Message::withoutGlobalScopes()->where('role', 'user')->first();
+    expect($userMessage)->not->toBeNull();
+    expect($userMessage->content)->toBe('Hola, quiero información');
+
+    // No assistant message should be created
+    expect(Message::withoutGlobalScopes()->where('role', 'assistant')->count())->toBe(0);
+
+    // No WhatsApp message should be sent
+    Queue::assertNotPushed(SendWhatsAppMessage::class);
+
+    // Should log the rate limit warning with provider-aware delay
+    Log::shouldHaveReceived('warning')
+        ->withArgs(fn ($message, $context) => str_contains($message, 'AI provider rate limited')
+            && isset($context['retry_in_seconds'])
+            && $context['retry_in_seconds'] > 0
+        );
+});
+
+test('job does not duplicate user message on retry', function () {
+    TenantChatAgent::fake(['Respuesta 1', 'Respuesta 2']);
+    Queue::fake([SendWhatsAppMessage::class]);
+
+    $inbound = makeInboundMessage(['messageId' => 'wamid_dedup_test']);
+
+    // First execution
+    (new ProcessIncomingMessage($this->channel, $inbound))->handle();
+
+    // Second execution (simulating retry)
+    (new ProcessIncomingMessage($this->channel, $inbound))->handle();
+
+    // Only 1 user message should exist
+    $userMessages = Message::withoutGlobalScopes()
+        ->where('role', 'user')
+        ->where('metadata->whatsapp_message_id', 'wamid_dedup_test')
+        ->get();
+
+    expect($userMessages)->toHaveCount(1);
+});
+
+test('job stores contact country when creating new conversation', function () {
+    TenantChatAgent::fake(['Respuesta']);
+    Queue::fake([SendWhatsAppMessage::class]);
+
+    $inbound = makeInboundMessage(['from' => '50234850199']);
+
+    (new ProcessIncomingMessage($this->channel, $inbound))->handle();
+
+    $conversation = Conversation::withoutGlobalScopes()
+        ->where('contact_phone', '50234850199')
+        ->first();
+
+    expect($conversation)->not->toBeNull();
+    expect($conversation->contact_country)->toBe('GT');
+});
+
+test('job conversation messages_count is correct after rate limit retry', function () {
+    Queue::fake([SendWhatsAppMessage::class]);
+
+    $conversation = Conversation::factory()->create([
+        'tenant_id' => $this->tenant->id,
+        'channel_id' => $this->channel->id,
+        'contact_phone' => '+51999888777',
+        'messages_count' => 0,
+    ]);
+
+    $inbound = makeInboundMessage();
+
+    // First attempt: rate limited
+    TenantChatAgent::fake(fn () => throw RateLimitedException::forProvider('gemini'));
+    (new ProcessIncomingMessage($this->channel, $inbound))->handle();
+
+    $conversation->refresh();
+    // Only user message counted
+    expect($conversation->messages_count)->toBe(1);
+
+    // Second attempt: succeeds
+    TenantChatAgent::fake(['Respuesta exitosa']);
+    (new ProcessIncomingMessage($this->channel, $inbound))->handle();
+
+    $conversation->refresh();
+    // User message (not duplicated) + assistant message
+    expect($conversation->messages_count)->toBe(2);
 });
