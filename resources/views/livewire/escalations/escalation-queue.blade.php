@@ -82,7 +82,7 @@
         </div>
     @endif
 
-    <flux:modal wire:model="resolvingEscalationId" class="max-w-lg">
+    <flux:modal wire:model="showResolveModal" class="max-w-lg">
         <flux:heading size="lg">{{ __('Resolve Escalation') }}</flux:heading>
 
         <div class="mt-4">

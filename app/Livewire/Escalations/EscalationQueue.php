@@ -2,8 +2,8 @@
 
 namespace App\Livewire\Escalations;
 
+use App\Models\Enums\ConversationStatus;
 use App\Models\Escalation;
-use App\Models\User;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
@@ -18,6 +18,8 @@ class EscalationQueue extends Component
 {
     use AuthorizesRequests, WithPagination;
 
+    public bool $showResolveModal = false;
+
     public ?string $resolvingEscalationId = null;
 
     #[Validate('required|string|max:1000')]
@@ -31,6 +33,7 @@ class EscalationQueue extends Component
 
         $this->resolvingEscalationId = $escalationId;
         $this->resolutionNote = '';
+        $this->showResolveModal = true;
     }
 
     public function resolve(): void
@@ -44,6 +47,11 @@ class EscalationQueue extends Component
             'resolution_note' => $this->resolutionNote,
         ]);
 
+        $escalation->conversation->update([
+            'status' => ConversationStatus::Active,
+        ]);
+
+        $this->showResolveModal = false;
         $this->reset(['resolvingEscalationId', 'resolutionNote']);
 
         session()->flash('message', __('Escalation resolved.'));
@@ -59,6 +67,7 @@ class EscalationQueue extends Component
 
     public function cancelResolve(): void
     {
+        $this->showResolveModal = false;
         $this->reset(['resolvingEscalationId', 'resolutionNote']);
     }
 

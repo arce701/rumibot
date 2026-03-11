@@ -56,7 +56,7 @@
                 </div>
             </div>
 
-            @if ($conversation->status === \App\Models\Enums\ConversationStatus::Active)
+            @if (in_array($conversation->status, [\App\Models\Enums\ConversationStatus::Active, \App\Models\Enums\ConversationStatus::Escalated]))
                 <form wire:submit="sendReply" class="mt-4 space-y-2" x-data>
                     @if ($attachment)
                         <div class="flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-800">

@@ -150,6 +150,7 @@ test('escalation resolved', function () {
     $conversation = Conversation::factory()->create([
         'tenant_id' => $this->tenant->id,
         'channel_id' => $channel->id,
+        'status' => ConversationStatus::Escalated,
     ]);
 
     $escalation = Escalation::factory()->create([
@@ -166,8 +167,10 @@ test('escalation resolved', function () {
         ->assertHasNoErrors();
 
     $escalation->refresh();
+    $conversation->refresh();
     expect($escalation->isResolved())->toBeTrue();
     expect($escalation->resolution_note)->toBe('Issue resolved by contacting customer');
+    expect($conversation->status)->toBe(ConversationStatus::Active);
 });
 
 test('invite team member with role', function () {

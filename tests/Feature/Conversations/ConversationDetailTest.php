@@ -4,6 +4,7 @@ use App\Jobs\SendWhatsAppMessage;
 use App\Livewire\Conversations\ConversationDetail;
 use App\Models\Channel;
 use App\Models\Conversation;
+use App\Models\Enums\ConversationStatus;
 use App\Models\Message;
 use App\Models\Tenant;
 use App\Models\User;
@@ -196,6 +197,27 @@ test('sendReply without attachment still requires text (regression)', function (
         ->set('replyText', '')
         ->call('sendReply')
         ->assertHasErrors(['replyText' => 'required']);
+});
+
+test('sendReply works on escalated conversations', function () {
+    Queue::fake([SendWhatsAppMessage::class]);
+
+    $this->conversation->update(['status' => ConversationStatus::Escalated]);
+
+    Livewire::actingAs($this->owner)
+        ->test(ConversationDetail::class, ['conversation' => $this->conversation])
+        ->set('replyText', 'We are handling your escalation')
+        ->call('sendReply')
+        ->assertHasNoErrors();
+
+    $message = Message::withoutGlobalScopes()
+        ->where('conversation_id', $this->conversation->id)
+        ->where('role', 'assistant')
+        ->first();
+
+    expect($message)->not->toBeNull();
+    expect($message->content)->toBe('We are handling your escalation');
+    expect($message->metadata['provider'])->toBe('human');
 });
 
 test('removeAttachment clears the attachment property', function () {
